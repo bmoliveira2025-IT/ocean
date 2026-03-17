@@ -172,10 +172,17 @@ export class GameEngine {
       }
     });
 
+    const aliveBots = this.bots.filter(b => b.alive);
+    if(aliveBots.length < 15) this.spawnBot();
+    this.bots = aliveBots;
+
     const allSnakes = [...this.bots];
     if(this.player.alive) allSnakes.push(this.player);
+
     allSnakes.forEach(snake => {
       if(!snake.alive) return;
+      snake.segments.forEach(seg => this.hash.insert(seg.x, seg.y, { snake, seg }));
+      
       allSnakes.forEach(other => {
         if(!other.alive || snake === other) return;
         other.segments.forEach((seg, idx) => {
@@ -192,7 +199,7 @@ export class GameEngine {
                 if(this.audio) this.audio.play('death');
                 this.shake = 15;
                 for(let k = 0; k < 25; k++) this.particles.push(new Particle(snake.x, snake.y, snake.color));
-                const dropCount = Math.floor(snake.size / 2) + 5;
+                const dropCount = Math.floor(snake.size * 0.5) + 5;
                 for(let k = 0; k < dropCount; k++) {
                   this.spawnOrb(snake.x + randRange(-50,50), snake.y + randRange(-50,50), 3, snake.color, true);
                 }

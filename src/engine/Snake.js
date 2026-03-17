@@ -13,6 +13,7 @@ function lerpAngle(a, b, t) {
   return a + d * t;
 }
 function hexToRgb(hex) {
+  if (typeof hex !== 'string' || !hex.startsWith('#')) return null;
   const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
   return {r,g,b};
 }
@@ -133,7 +134,7 @@ export class Snake {
     const headR = this.headRadius;
     const bodyR = this.bodyRadius;
     const th = this.theme || null;
-    const bodyColor = th ? th.body : `rgba(${r.r},${r.g},${r.b},1)`;
+    const bodyColor = th ? th.body : (r ? `rgba(${r.r},${r.g},${r.b},1)` : this.color);
     const glowColor = th ? th.glow : this.color;
 
     if(this.boostTrail.length > 0) {
@@ -182,7 +183,7 @@ export class Snake {
     ctx.save();
     ctx.translate(tailSeg.x - cx, tailSeg.y - cy);
     ctx.rotate(tailAngle + tailWag);
-    ctx.fillStyle = th ? th.body : `rgba(${r.r},${r.g},${r.b},0.7)`;
+    ctx.fillStyle = th ? th.body : (r ? `rgba(${r.r},${r.g},${r.b},0.7)` : this.color);
     ctx.beginPath();
     ctx.moveTo(0, 0);
     ctx.lineTo(-bodyR * 1.8, -bodyR * 1.2);
@@ -236,7 +237,7 @@ export class Snake {
     ctx.beginPath(); ctx.arc(eyeX, eyeY, headR * 0.32, 0, Math.PI*2); ctx.fill();
     ctx.fillStyle = th ? th.pupil : '#111';
     ctx.beginPath(); ctx.arc(eyeX + Math.cos(this.angle)*1.5, eyeY + Math.sin(this.angle)*1.5, headR*0.18, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = th ? th.fin : `rgba(${r.r},${r.g},${r.b},0.6)`;
+    ctx.fillStyle = th ? th.fin : (r ? `rgba(${r.r},${r.g},${r.b},0.6)` : this.color);
     ctx.save();
     ctx.translate(seg[0].x - cx, seg[0].y - cy);
     ctx.rotate(this.angle - Math.PI/2 + Math.sin(this.phase*0.8)*0.3);
