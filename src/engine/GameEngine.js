@@ -151,6 +151,10 @@ export class GameEngine {
   }
 
   update(dt) {
+    // Filter dead bots and respawn
+    this.bots = this.bots.filter(b => b.alive);
+    while(this.bots.length < 15) this.spawnBot();
+
     this.hash.clear();
     
     if(this.spawnTimer > 0) {
@@ -197,6 +201,7 @@ export class GameEngine {
 
     this.bots.forEach(bot => {
       if(!bot.alive) return;
+      bot.updatePowerups(dt); // IMPORTANT: allow bot shields to expire
       bot.aiTimer -= dt;
       if(bot.aiTimer <= 0) {
         bot.targetAngle = Math.random() * Math.PI * 2;
@@ -215,8 +220,6 @@ export class GameEngine {
       }
     });
 
-    this.bots = this.bots.filter(b => b.alive);
-    while(this.bots.length < 15) this.spawnBot();
 
     const allSnakes = [...this.bots];
     if(this.player.alive) allSnakes.push(this.player);
