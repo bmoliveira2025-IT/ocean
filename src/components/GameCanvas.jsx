@@ -34,15 +34,13 @@ const GameCanvas = ({ nickname, theme, onGameStateChange }) => {
       engineRef.current.mouse.angle = Math.atan2(dy, dx);
     };
 
+    let lastTapTime = 0;
+
     // Handle touch movement
     const onTouchMove = (e) => {
-      e.preventDefault(); // Prevent scrolling while playing
+      e.preventDefault();
       if (e.touches && e.touches[0]) {
         updateAngle(e.touches[0].clientX, e.touches[0].clientY);
-      }
-      // Boost if more than one finger is touching
-      if (engineRef.current) {
-        engineRef.current.mouse.boosting = e.touches.length > 1;
       }
     };
 
@@ -50,17 +48,24 @@ const GameCanvas = ({ nickname, theme, onGameStateChange }) => {
     const onMouseUp = () => { if (engineRef.current) engineRef.current.mouse.boosting = false; };
     
     const onTouchStart = (e) => {
+      const currentTime = Date.now();
+      const tapInterval = currentTime - lastTapTime;
+      
+      if (tapInterval < 300) {
+        // Double tap detected - start boosting
+        if (engineRef.current) engineRef.current.mouse.boosting = true;
+      }
+      
+      lastTapTime = currentTime;
+
       if (e.touches && e.touches[0]) {
         updateAngle(e.touches[0].clientX, e.touches[0].clientY);
       }
-      if (engineRef.current) {
-        engineRef.current.mouse.boosting = e.touches.length > 1;
-      }
     };
     
-    const onTouchEnd = (e) => {
+    const onTouchEnd = () => {
       if (engineRef.current) {
-        engineRef.current.mouse.boosting = e.touches.length > 1;
+        engineRef.current.mouse.boosting = false;
       }
     };
 
