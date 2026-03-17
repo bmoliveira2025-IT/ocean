@@ -64,6 +64,17 @@ const GameCanvas = ({ nickname, theme, onGameStateChange }) => {
       }
     };
 
+    const handleResize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', () => {
+      // Delay slightly to ensure innerWidth/Height are updated
+      setTimeout(handleResize, 100);
+    });
+
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mouseup', onMouseUp);
@@ -74,6 +85,8 @@ const GameCanvas = ({ nickname, theme, onGameStateChange }) => {
     engine.start(nickname, theme, onGameStateChange);
 
     return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('mouseup', onMouseUp);
