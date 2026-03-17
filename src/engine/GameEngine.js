@@ -33,6 +33,7 @@ export class GameEngine {
     for(let i = 0; i < 150; i++) this.spawnAmbientParticle();
     this.popups = [];
     this.shake = 0;
+    this.spawnTimer = 0;
   }
 
   spawnAmbientParticle() {
@@ -51,7 +52,8 @@ export class GameEngine {
   }
 
   start(nickname, theme, onGameStateChange) {
-    this.player = new Snake(0, 0, '#00b4d8', nickname || 'Peixe');
+    const pos = this.findSafePos();
+    this.player = new Snake(pos.x, pos.y, '#00b4d8', nickname || 'Peixe');
     this.player.theme = theme;
     this.bots = [];
     for(let i = 0; i < 15; i++) this.spawnBot();
@@ -63,14 +65,41 @@ export class GameEngine {
     this.lastTime = performance.now();
     this.onGameStateChange = onGameStateChange;
     this.stats = { size: 10, kills: 0, bestSize: 0, dead: false };
+    this.spawnTimer = 3000;
+    this.player.shield = true;
     requestAnimationFrame(this.loop.bind(this));
   }
 
   spawnBot() {
-    const a = Math.random()*Math.PI*2, d = Math.random()*WORLD_RADIUS;
-    const s = new Snake(Math.cos(a)*d, Math.sin(a)*d, `hsl(${Math.random()*360}, 70%, 50%)`, 'Bot');
+    const pos = this.findSafePos();
+    const s = new Snake(pos.x, pos.y, `hsl(${Math.random()*360}, 70%, 50%)`, 'Bot');
     s.aiTimer = 0;
     this.bots.push(s);
+  }
+
+  findSafePos() {
+    let attempts = 0;
+    while(attempts < 50) {
+      const a = Math.random()*Math.PI*2;
+      const d = Math.random()*WORLD_RADIUS;
+      const x = Math.cos(a)*d;
+      const y = Math.sin(a)*d;
+      
+      const allSnakes = [...this.bots];
+      if(this.player) allSnakes.push(this.player);
+      
+      let tooClose = false;
+      for(const s of allSnakes) {
+        if(dist(x, y, s.x, s.y) < 150) {
+          tooClose = true;
+          break;
+        }
+      }
+      
+      if(!tooClose) return {x, y};
+      attempts++;
+    }
+    return {x: 0, y: 0}; // Fallback
   }
 
   spawnOrb(x, y, val, color, isDeath) {
@@ -117,6 +146,12 @@ export class GameEngine {
 
   update(dt) {
     this.hash.clear();
+    
+    if(this.spawnTimer > 0) {
+      this.spawnTimer -= dt;
+      if(this.spawnTimer < 0) this.spawnTimer = 0;
+      if(this.player) this.player.shield = true;
+    }
     
     if(this.player.alive) {
       this.player.move(this.mouse.angle, this.mouse.boosting);
@@ -283,6 +318,24 @@ export class GameEngine {
     });
     ctx.restore();
     this.drawMinimap();
+
+    // Draw Spawn Countdown
+    if(this.spawnTimer > 0) {
+      const count = Math.ceil(this.spawnTimer / 1000);
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 120px Inter';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowBlur = 30;
+      ctx.shadowColor = '#00b4d8';
+      ctx.fillText(count, this.canvas.width / 2, this.canvas.height / 2);
+      ctx.font = 'bold 24px Inter';
+      ctx.fillText('PREPARE-SE!', this.canvas.width / 2, this.canvas.height / 2 + 100);
+      ctx.restore();
+    }
   }
 
   drawMinimap() {
