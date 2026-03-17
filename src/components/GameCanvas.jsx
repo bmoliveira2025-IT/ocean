@@ -23,19 +23,35 @@ const GameCanvas = ({ nickname, theme, onGameStateChange }) => {
 
     // Handle mouse movement
     const onMouseMove = (e) => {
-      if (!engineRef.current) return;
       const { clientX, clientY } = e;
-      const dx = clientX - window.innerWidth / 2;
-      const dy = clientY - window.innerHeight / 2;
+      updateAngle(clientX, clientY);
+    };
+
+    const updateAngle = (x, y) => {
+      if (!engineRef.current) return;
+      const dx = x - window.innerWidth / 2;
+      const dy = y - window.innerHeight / 2;
       engineRef.current.mouse.angle = Math.atan2(dy, dx);
+    };
+
+    // Handle touch movement
+    const onTouchMove = (e) => {
+      if (e.touches && e.touches[0]) {
+        updateAngle(e.touches[0].clientX, e.touches[0].clientY);
+      }
     };
 
     const onMouseDown = () => { if (engineRef.current) engineRef.current.mouse.boosting = true; };
     const onMouseUp = () => { if (engineRef.current) engineRef.current.mouse.boosting = false; };
+    const onTouchStart = () => { if (engineRef.current) engineRef.current.mouse.boosting = true; };
+    const onTouchEnd = () => { if (engineRef.current) engineRef.current.mouse.boosting = false; };
 
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchstart', onTouchStart);
+    window.addEventListener('touchend', onTouchEnd);
 
     engine.start(nickname, theme, onGameStateChange);
 
@@ -43,6 +59,9 @@ const GameCanvas = ({ nickname, theme, onGameStateChange }) => {
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('mouseup', onMouseUp);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchend', onTouchEnd);
       if (engineRef.current) engineRef.current.running = false;
     };
   }, [nickname, theme]);
