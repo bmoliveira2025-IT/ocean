@@ -1,8 +1,8 @@
 // Snake.js
 const SEGMENT_SIZE = 5;
-const BASE_SPEED = 2.5;
-const BOOST_SPEED = 5.0;
-const SPEED_PU_SPEED = 7.5;
+const BASE_SPEED = 2.0;
+const BOOST_SPEED = 4.0;
+const SPEED_PU_SPEED = 6.0;
 const WORLD_RADIUS = 3000;
 
 function dist(ax, ay, bx, by) { const dx=ax-bx, dy=ay-by; return Math.sqrt(dx*dx+dy*dy); }

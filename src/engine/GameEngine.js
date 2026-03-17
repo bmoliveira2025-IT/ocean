@@ -172,9 +172,8 @@ export class GameEngine {
       }
     });
 
-    const aliveBots = this.bots.filter(b => b.alive);
-    if(aliveBots.length < 15) this.spawnBot();
-    this.bots = aliveBots;
+    this.bots = this.bots.filter(b => b.alive);
+    while(this.bots.length < 15) this.spawnBot();
 
     const allSnakes = [...this.bots];
     if(this.player.alive) allSnakes.push(this.player);
