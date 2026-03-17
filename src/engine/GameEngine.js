@@ -54,7 +54,7 @@ export class GameEngine {
     this.player = new Snake(0, 0, '#00b4d8', nickname || 'Peixe');
     this.player.theme = theme;
     this.bots = [];
-    for(let i = 0; i < 15; i++) this.spawnBot();
+    for(let i = 0; i < 40; i++) this.spawnBot();
     this.orbs = [];
     for(let i = 0; i < MAX_ORBS; i++) this.spawnOrb();
     this.powerups = [];
@@ -67,7 +67,7 @@ export class GameEngine {
   }
 
   spawnBot() {
-    const a = Math.random()*Math.PI*2, d = randRange(500, 2000);
+    const a = Math.random()*Math.PI*2, d = Math.random()*WORLD_RADIUS;
     const s = new Snake(Math.cos(a)*d, Math.sin(a)*d, `hsl(${Math.random()*360}, 70%, 50%)`, 'Bot');
     s.aiTimer = 0;
     this.bots.push(s);
@@ -173,7 +173,7 @@ export class GameEngine {
     });
 
     this.bots = this.bots.filter(b => b.alive);
-    while(this.bots.length < 15) this.spawnBot();
+    while(this.bots.length < 40) this.spawnBot();
 
     const allSnakes = [...this.bots];
     if(this.player.alive) allSnakes.push(this.player);
@@ -261,15 +261,6 @@ export class GameEngine {
     this.bots.forEach(bot => bot.drawFish(ctx, 0, 0));
     if(this.player.alive) {
       this.player.drawFish(ctx, 0, 0);
-      const head = this.player.segments[0];
-      const targetX = head.x + Math.cos(this.mouse.angle) * 80;
-      const targetY = head.y + Math.sin(this.mouse.angle) * 80;
-      ctx.save();
-      ctx.strokeStyle = '#00b4d8'; ctx.lineWidth = 2; ctx.setLineDash([5, 5]); ctx.globalAlpha = 0.4;
-      ctx.beginPath(); ctx.moveTo(head.x, head.y); ctx.lineTo(targetX, targetY); ctx.stroke();
-      ctx.setLineDash([]); ctx.beginPath(); ctx.translate(targetX, targetY); ctx.rotate(this.mouse.angle);
-      ctx.moveTo(0, 0); ctx.lineTo(-10, -5); ctx.lineTo(-10, 5); ctx.closePath();
-      ctx.fillStyle = '#00b4d8'; ctx.fill(); ctx.restore();
     }
     this.particles.forEach(p => p.draw(ctx, 0, 0));
     this.popups.forEach(p => {
