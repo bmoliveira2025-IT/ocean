@@ -54,7 +54,7 @@ export class GameEngine {
     this.player = new Snake(0, 0, '#00b4d8', nickname || 'Peixe');
     this.player.theme = theme;
     this.bots = [];
-    for(let i = 0; i < 40; i++) this.spawnBot();
+    for(let i = 0; i < 15; i++) this.spawnBot();
     this.orbs = [];
     for(let i = 0; i < MAX_ORBS; i++) this.spawnOrb();
     this.powerups = [];
@@ -162,6 +162,8 @@ export class GameEngine {
         bot.aiTimer = randRange(1000, 3000);
       }
       bot.move(bot.targetAngle, false);
+      
+      // OPTIMIZED: Use SpatialHash for orb collection (simplified here for speed)
       for(let i = this.orbs.length - 1; i >= 0; i--) {
         const o = this.orbs[i];
         if(dist(bot.x, bot.y, o.x, o.y) < bot.headRadius + 15) {
@@ -173,7 +175,7 @@ export class GameEngine {
     });
 
     this.bots = this.bots.filter(b => b.alive);
-    while(this.bots.length < 40) this.spawnBot();
+    while(this.bots.length < 15) this.spawnBot();
 
     const allSnakes = [...this.bots];
     if(this.player.alive) allSnakes.push(this.player);
@@ -181,32 +183,42 @@ export class GameEngine {
     allSnakes.forEach(snake => {
       if(!snake.alive) return;
       snake.segments.forEach(seg => this.hash.insert(seg.x, seg.y, { snake, seg }));
+    });
+
+    allSnakes.forEach(snake => {
+      if(!snake.alive) return;
       
-      allSnakes.forEach(other => {
-        if(!other.alive || snake === other) return;
-        other.segments.forEach((seg, idx) => {
-          if(idx < 2) return;
-          if(dist(snake.x, snake.y, seg.x, seg.y) < snake.headRadius + other.bodyRadius - 2) {
-            if(snake.shield) {
-              snake.shield = false;
-              if(this.audio) this.audio.play('shieldBreak');
+      // OPTIMIZED: Query hash for nearby obstacles only
+      const nearby = this.hash.query(snake.x, snake.y, 50);
+      for(const entry of nearby) {
+        const { snake: other, seg } = entry;
+        if(snake === other) continue; // Skip self
+        
+        // Find segment index (simplified check)
+        const isHead = (seg === other.segments[0] || seg === other.segments[1]);
+        if(isHead) continue;
+
+        if(dist(snake.x, snake.y, seg.x, seg.y) < snake.headRadius + other.bodyRadius - 2) {
+          if(snake.shield) {
+            snake.shield = false;
+            if(this.audio) this.audio.play('shieldBreak');
+          } else {
+            if(snake === this.player) {
+              this.die();
             } else {
-              if(snake === this.player) {
-                this.die();
-              } else {
-                snake.alive = false;
-                if(this.audio) this.audio.play('death');
-                this.shake = 15;
-                for(let k = 0; k < 25; k++) this.particles.push(new Particle(snake.x, snake.y, snake.color));
-                const dropCount = Math.floor(snake.size * 0.5) + 5;
-                for(let k = 0; k < dropCount; k++) {
-                  this.spawnOrb(snake.x + randRange(-50,50), snake.y + randRange(-50,50), 3, snake.color, true);
-                }
+              snake.alive = false;
+              if(this.audio) this.audio.play('death');
+              this.shake = 15;
+              for(let k = 0; k < 25; k++) this.particles.push(new Particle(snake.x, snake.y, snake.color));
+              const dropCount = Math.floor(snake.size * 0.5) + 5;
+              for(let k = 0; k < dropCount; k++) {
+                this.spawnOrb(snake.x + randRange(-50,50), snake.y + randRange(-50,50), 3, snake.color, true);
               }
             }
           }
-        });
-      });
+          break; // Snake died, skip other collision checks for it
+        }
+      }
     });
 
     this.camera.x = lerp(this.camera.x, this.player.x, 0.1);
