@@ -34,40 +34,15 @@ const GameCanvas = ({ nickname, theme, onGameStateChange }) => {
       engineRef.current.mouse.angle = Math.atan2(dy, dx);
     };
 
-    let lastTapTime = 0;
-
-    // Handle touch movement
-    const onTouchMove = (e) => {
-      e.preventDefault();
-      if (e.touches && e.touches[0]) {
-        updateAngle(e.touches[0].clientX, e.touches[0].clientY);
-      }
-    };
-
+    // Mouse only for PC
     const onMouseDown = () => { if (engineRef.current) engineRef.current.mouse.boosting = true; };
     const onMouseUp = () => { if (engineRef.current) engineRef.current.mouse.boosting = false; };
     
-    const onTouchStart = (e) => {
-      const currentTime = Date.now();
-      const tapInterval = currentTime - lastTapTime;
-      
-      if (tapInterval < 300) {
-        // Double tap detected - start boosting
-        if (engineRef.current) engineRef.current.mouse.boosting = true;
-      }
-      
-      lastTapTime = currentTime;
-
-      if (e.touches && e.touches[0]) {
-        updateAngle(e.touches[0].clientX, e.touches[0].clientY);
-      }
-    };
-    
-    const onTouchEnd = () => {
-      if (engineRef.current) {
-        engineRef.current.mouse.boosting = false;
-      }
-    };
+    // Joystick and Boost will be handled via the component, 
+    // but the engine needs to be updated. 
+    // We can expose the engine to the window for simple cross-component access 
+    // or use a more React-way. For now, let's keep it simple.
+    window.gameEngine = engine;
 
     const handleResize = () => {
       canvas.width = window.innerWidth;
@@ -83,9 +58,6 @@ const GameCanvas = ({ nickname, theme, onGameStateChange }) => {
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mouseup', onMouseUp);
-    window.addEventListener('touchmove', onTouchMove, { passive: false });
-    window.addEventListener('touchstart', onTouchStart);
-    window.addEventListener('touchend', onTouchEnd);
 
     engine.start(nickname, theme, onGameStateChange);
 
@@ -95,10 +67,8 @@ const GameCanvas = ({ nickname, theme, onGameStateChange }) => {
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('mouseup', onMouseUp);
-      window.removeEventListener('touchmove', onTouchMove);
-      window.removeEventListener('touchstart', onTouchStart);
-      window.removeEventListener('touchend', onTouchEnd);
       if (engineRef.current) engineRef.current.running = false;
+      window.gameEngine = null;
     };
   }, [nickname, theme]);
 

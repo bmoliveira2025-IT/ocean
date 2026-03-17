@@ -2,13 +2,19 @@ import React, { useState, useEffect } from 'react';
 import GameCanvas from './components/GameCanvas';
 import HUD from './components/HUD';
 import { LoadingScreen, StartScreen, DeathScreen, SkinModal } from './components/Screens';
+import { MobileControls, OrientationOverlay } from './components/MobileUI';
 import './styles/global.css';
 
 function App() {
   const [gameState, setGameState] = useState('loading'); // loading, menu, playing, dead
   const [loadProgress, setLoadProgress] = useState(0);
   const [playerData, setPlayerData] = useState({ nickname: '', theme: null });
-  const [gameStats, setGameStats] = useState({ size: 10, kills: 0, bestSize: 0 });
+  const [gameStats, setGameStats] = useState({ 
+    size: 10, 
+    kills: 0, 
+    bestSize: parseInt(localStorage.getItem('aquaSlither_bestSize')) || 0, 
+    dead: false 
+  });
   const [ranking, setRanking] = useState([]);
   const [isSkinModalOpen, setIsSkinModalOpen] = useState(false);
 
@@ -33,18 +39,16 @@ function App() {
     
     // Request fullscreen for true mobile "tela cheia" experience
     if (document.documentElement.requestFullscreen) {
-      document.documentElement.requestFullscreen().catch(() => {
-        // Fallback or ignore if blocked (e.g. some browsers or previous rejection)
-      });
+      document.documentElement.requestFullscreen().catch(() => {});
     } else if (document.documentElement.webkitRequestFullscreen) {
       document.documentElement.webkitRequestFullscreen();
-    } else if (document.documentElement.msRequestFullscreen) {
-      document.documentElement.msRequestFullscreen();
     }
   };
 
   return (
     <div className="App">
+      <OrientationOverlay />
+      
       {gameState === 'loading' && <LoadingScreen progress={loadProgress} />}
       
       {gameState === 'menu' && (
@@ -80,7 +84,14 @@ function App() {
             theme={playerData.theme}
             onGameStateChange={(data) => {
               if (data.dead) setGameState('dead');
-              setGameStats(prev => ({ ...prev, ...data }));
+              setGameStats(prev => {
+                const newSize = data.size || prev.size;
+                const newBest = Math.max(prev.bestSize, newSize);
+                if (newBest > prev.bestSize) {
+                  localStorage.setItem('aquaSlither_bestSize', newBest);
+                }
+                return { ...prev, ...data, bestSize: newBest };
+              });
               if (data.ranking) setRanking(data.ranking);
             }}
           />
@@ -96,6 +107,14 @@ function App() {
             ping={42}
             fps={60}
             biome="Oceano Aberto"
+          />
+          <MobileControls 
+            onJoystickMove={(angle) => {
+              if (window.gameEngine) window.gameEngine.mouse.angle = angle;
+            }}
+            onBoostToggle={(boosting) => {
+              if (window.gameEngine) window.gameEngine.mouse.boosting = boosting;
+            }}
           />
         </>
       )}

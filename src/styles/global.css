@@ -254,3 +254,78 @@ body {
 .theme-card:hover { background: rgba(255,255,255,0.08); transform: scale(1.02); }
 .theme-card.selected { border-color: #00b4d8; background: rgba(0,180,216,0.1); }
 .tc-name { font-size: 14px; font-weight: 600; color: #fff; text-align: center; }
+
+/* Mobile Controls */
+#mobileControls {
+  position: absolute; bottom: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 20; display: none;
+}
+@media (max-width: 1366px) {
+  #mobileControls { display: block; }
+  #powerupsHUD {
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) scale(0.65);
+    z-index: 30;
+  }
+  #biomeLabel {
+    top: 60px;
+    bottom: auto;
+    left: 50%;
+    transform: translateX(-50%) scale(0.8);
+  }
+}
+
+#joystickZone {
+  position: absolute; bottom: 30px; left: 30px;
+  width: 140px; height: 140px;
+  background: rgba(255,255,255,0.05); border: 2px solid rgba(0,180,216,0.3);
+  border-radius: 50%; pointer-events: auto; touch-action: none;
+  backdrop-filter: blur(5px);
+}
+#joystickStick {
+  position: absolute; top: 50%; left: 50%;
+  width: 55px; height: 55px; margin-left: -27.5px; margin-top: -27.5px;
+  background: radial-gradient(circle, #00b4d8, #0077b6);
+  border-radius: 50%; box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+  pointer-events: none;
+}
+
+#boostBtnZone {
+  position: absolute; bottom: 40px; right: 40px;
+  width: 90px; height: 90px;
+  background: rgba(255,255,255,0.05); border: 2px solid rgba(255,100,100,0.3);
+  border-radius: 50%; pointer-events: auto; touch-action: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 10px; color: #fff; font-weight: 900; user-select: none;
+  backdrop-filter: blur(5px);
+}
+#boostBtnZone span { font-size: 24px; margin-bottom: 2px; }
+#boostBtnZone.active {
+  background: rgba(255,100,100,0.25); border-color: rgba(255,100,100,0.8);
+  box-shadow: 0 0 20px rgba(255,100,100,0.4);
+  transform: scale(0.95);
+}
+
+/* Orientation Lock Overlay */
+#orientationOverlay {
+  position: fixed; inset: 0; background: #020d1a;
+  z-index: 10000; display: none; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center;
+  padding: 30px; color: #fff;
+}
+#orientationOverlay .phone {
+  font-size: 70px; margin-bottom: 20px;
+  animation: phoneRotate 2s ease-in-out infinite;
+}
+@keyframes phoneRotate {
+  0% { transform: rotate(0deg); }
+  50% { transform: rotate(-90deg); }
+  100% { transform: rotate(0deg); }
+}
+#orientationOverlay h2 { font-size: 24px; margin-bottom: 10px; font-weight: 800; color: #00b4d8; }
+#orientationOverlay p { font-size: 16px; opacity: 0.7; max-width: 250px; line-height: 1.4; }
+
+@media (orientation: portrait) and (max-width: 1366px) {
+  #orientationOverlay { display: flex; }
+}
