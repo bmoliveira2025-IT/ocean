@@ -36,15 +36,33 @@ const GameCanvas = ({ nickname, theme, onGameStateChange }) => {
 
     // Handle touch movement
     const onTouchMove = (e) => {
+      e.preventDefault(); // Prevent scrolling while playing
       if (e.touches && e.touches[0]) {
         updateAngle(e.touches[0].clientX, e.touches[0].clientY);
+      }
+      // Boost if more than one finger is touching
+      if (engineRef.current) {
+        engineRef.current.mouse.boosting = e.touches.length > 1;
       }
     };
 
     const onMouseDown = () => { if (engineRef.current) engineRef.current.mouse.boosting = true; };
     const onMouseUp = () => { if (engineRef.current) engineRef.current.mouse.boosting = false; };
-    const onTouchStart = () => { if (engineRef.current) engineRef.current.mouse.boosting = true; };
-    const onTouchEnd = () => { if (engineRef.current) engineRef.current.mouse.boosting = false; };
+    
+    const onTouchStart = (e) => {
+      if (e.touches && e.touches[0]) {
+        updateAngle(e.touches[0].clientX, e.touches[0].clientY);
+      }
+      if (engineRef.current) {
+        engineRef.current.mouse.boosting = e.touches.length > 1;
+      }
+    };
+    
+    const onTouchEnd = (e) => {
+      if (engineRef.current) {
+        engineRef.current.mouse.boosting = e.touches.length > 1;
+      }
+    };
 
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mousedown', onMouseDown);
