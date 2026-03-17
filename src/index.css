@@ -1,21 +1,18 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-:root {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  color-scheme: dark;
+/* src/index.css */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { 
+  background: #020d1a; 
+  overflow: hidden; 
+  font-family: 'Segoe UI', system-ui, sans-serif; 
+  width: 100vw;
+  height: 100vh;
+  cursor: default !important;
 }
 
-body {
-  margin: 0;
-  padding: 0;
-  background: #020d1a;
-  overflow: hidden;
-  user-select: none;
+#root {
+  width: 100%;
+  height: 100%;
+  position: relative;
 }
 
-#gameCanvas {
-  display: block;
-  cursor: none;
-}
+/* Cleaned up for global.css */
