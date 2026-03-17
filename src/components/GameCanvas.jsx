@@ -1,18 +1,24 @@
 import { useEffect, useRef } from 'react';
 import { GameEngine } from '../engine/GameEngine';
+import { AudioEngine } from '../engine/AudioEngine';
 
 const GameCanvas = ({ nickname, theme, onGameStateChange }) => {
   const canvasRef = useRef(null);
   const engineRef = useRef(null);
+  const audioRef = useRef(null);
 
   useEffect(() => {
     if (!canvasRef.current) return;
+
+    if (!audioRef.current) {
+      audioRef.current = new AudioEngine();
+    }
 
     const canvas = canvasRef.current;
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    const engine = new GameEngine(canvas);
+    const engine = new GameEngine(canvas, audioRef.current);
     engineRef.current = engine;
 
     // Handle mouse movement

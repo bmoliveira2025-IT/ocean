@@ -131,7 +131,7 @@ export class GameEngine {
             this.player.grow(o.value * 0.15);
             this.spawnScorePopup(o.x, o.y, `+${Math.floor(o.value)}`, o.color);
             this.orbs.splice(i, 1);
-            this.audio.play('orb');
+            if(this.audio) this.audio.play('orb');
             if(this.orbs.length < MAX_ORBS) this.spawnOrb();
             if(o.isDeath) this.shake = Math.max(this.shake, 6);
           } else if (this.player.magnet) {
@@ -146,7 +146,7 @@ export class GameEngine {
         const p = this.powerups[i];
         if(dist(this.player.x, this.player.y, p.x, p.y) < this.player.headRadius + p.r + 20) {
           this.player.applyPowerup(p.type);
-          this.audio.play('powerup');
+          if(this.audio) this.audio.play('powerup');
           this.powerups.splice(i, 1);
           setTimeout(() => this.spawnPowerUp(), 8000);
         }
@@ -183,13 +183,13 @@ export class GameEngine {
           if(dist(snake.x, snake.y, seg.x, seg.y) < snake.headRadius + other.bodyRadius - 2) {
             if(snake.shield) {
               snake.shield = false;
-              this.audio.play('shieldBreak');
+              if(this.audio) this.audio.play('shieldBreak');
             } else {
               if(snake === this.player) {
                 this.die();
               } else {
                 snake.alive = false;
-                this.audio.play('death');
+                if(this.audio) this.audio.play('death');
                 this.shake = 15;
                 for(let k = 0; k < 25; k++) this.particles.push(new Particle(snake.x, snake.y, snake.color));
                 const dropCount = Math.floor(snake.size / 2) + 5;
@@ -226,7 +226,7 @@ export class GameEngine {
 
   die() {
     this.player.alive = false;
-    this.audio.play('death');
+    if(this.audio) this.audio.play('death');
     this.shake = 25;
     for(let k = 0; k < 40; k++) this.particles.push(new Particle(this.player.x, this.player.y, this.player.color));
     this.stats.dead = true;
