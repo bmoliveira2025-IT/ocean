@@ -74,6 +74,8 @@ export class GameEngine {
     const pos = this.findSafePos();
     const s = new Snake(pos.x, pos.y, `hsl(${Math.random()*360}, 70%, 50%)`, 'Bot');
     s.aiTimer = 0;
+    s.shield = true;
+    s.shieldTime = 3000;
     this.bots.push(s);
   }
 
@@ -91,7 +93,7 @@ export class GameEngine {
       let tooClose = false;
       for(const s of allSnakes) {
         for(const seg of s.segments) {
-          if(dist(x, y, seg.x, seg.y) < 150) {
+          if(dist(x, y, seg.x, seg.y) < 100) {
             tooClose = true;
             break;
           }
@@ -102,7 +104,8 @@ export class GameEngine {
       if(!tooClose) return {x, y};
       attempts++;
     }
-    return {x: 0, y: 0}; // Fallback
+    const a = Math.random()*Math.PI*2, d = Math.random()*WORLD_RADIUS;
+    return {x: Math.cos(a)*d, y: Math.sin(a)*d};
   }
 
   spawnOrb(x, y, val, color, isDeath) {
