@@ -1,0 +1,1811 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AquaSlither — O Oceano te Aguarda</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #020d1a; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+  #gameCanvas { display: block; cursor: none; }
+
+  #hud {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 10;
+  }
+  #scorePanel {
+    position: absolute; top: 16px; left: 16px;
+    background: rgba(0,20,40,0.75); border: 1px solid rgba(0,180,216,0.3);
+    border-radius: 12px; padding: 12px 16px; color: #fff; min-width: 160px;
+    backdrop-filter: blur(8px);
+  }
+  #scorePanel .label { font-size: 10px; color: #00b4d8; text-transform: uppercase; letter-spacing: 1px; }
+  #scorePanel .value { font-size: 26px; font-weight: 700; color: #fff; line-height: 1.1; }
+  #scorePanel .sub { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+
+  #pingPanel {
+    position: absolute; top: 16px; right: 16px;
+    background: rgba(0,20,40,0.75); border: 1px solid rgba(0,180,216,0.2);
+    border-radius: 10px; padding: 8px 14px; color: #fff;
+    backdrop-filter: blur(8px); text-align: right;
+  }
+  #pingPanel .online { font-size: 11px; color: #52b788; }
+  #pingPanel .ping { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+
+  #ranking {
+    position: absolute; top: 16px; right: 16px; top: 80px;
+    background: rgba(0,20,40,0.75); border: 1px solid rgba(0,180,216,0.2);
+    border-radius: 12px; padding: 12px 16px; color: #fff; min-width: 160px;
+    backdrop-filter: blur(8px);
+  }
+  #ranking .rank-title { font-size: 10px; color: #00b4d8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  #ranking .rank-item { font-size: 12px; color: rgba(255,255,255,0.8); padding: 2px 0; display: flex; justify-content: space-between; gap: 12px; }
+  #ranking .rank-item.me { color: #f4d03f; font-weight: 700; }
+  #ranking .rank-num { color: rgba(255,255,255,0.35); font-size: 10px; width: 14px; }
+
+  #powerupsHUD {
+    position: absolute; bottom: 130px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 10px;
+  }
+  .pu-slot {
+    background: rgba(0,20,40,0.85); border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px; padding: 8px 12px; color: #fff; text-align: center;
+    min-width: 64px; position: relative; overflow: hidden;
+  }
+  .pu-slot .pu-icon { font-size: 22px; }
+  .pu-slot .pu-name { font-size: 9px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+  .pu-slot .pu-timer { font-size: 13px; font-weight: 700; color: #fff; }
+  .pu-slot.active { border-color: rgba(0,180,216,0.6); background: rgba(0,40,80,0.9); }
+  .pu-slot .pu-bar {
+    position: absolute; bottom: 0; left: 0; height: 3px;
+    background: #00b4d8; transition: width 0.1s linear;
+  }
+
+  #minimap {
+    position: absolute; bottom: 16px; right: 16px;
+    width: 120px; height: 120px;
+    background: rgba(0,20,40,0.8); border: 1px solid rgba(0,180,216,0.3);
+    border-radius: 50%; overflow: hidden;
+  }
+  #minimapCanvas { width: 120px; height: 120px; }
+
+  #muteBtn {
+    position: absolute; bottom: 16px; left: 16px;
+    background: rgba(0,20,40,0.75); border: 1px solid rgba(0,180,216,0.3);
+    border-radius: 50%; width: 44px; height: 44px; color: #fff;
+    font-size: 20px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; pointer-events: all; transition: background 0.2s;
+    user-select: none;
+  }
+  #muteBtn:hover { background: rgba(0,40,80,0.9); }
+
+  #fpsCounter {
+    position: absolute; bottom: 20px; left: 72px;
+    font-size: 10px; color: rgba(255,255,255,0.25);
+  }
+
+  /* Death screen */
+  #deathScreen {
+    position: fixed; inset: 0; background: rgba(0,5,15,0.92);
+    display: none; align-items: center; justify-content: center;
+    flex-direction: column; z-index: 100; backdrop-filter: blur(12px);
+  }
+  #deathScreen.show { display: flex; }
+  #deathScreen h1 {
+    font-size: 48px; font-weight: 900; color: #e07a5f;
+    text-shadow: 0 0 40px rgba(224,122,95,0.6);
+    letter-spacing: -1px; margin-bottom: 8px;
+    animation: deathPulse 1.5s ease-in-out infinite;
+  }
+  #deathScreen .death-sub { font-size: 16px; color: rgba(255,255,255,0.5); margin-bottom: 8px; }
+  #deathScreen .death-score { font-size: 28px; color: #f4d03f; font-weight: 700; margin-bottom: 32px; }
+  #respawnBtn {
+    background: linear-gradient(135deg, #00b4d8, #0077b6);
+    border: none; border-radius: 14px; padding: 16px 40px;
+    color: #fff; font-size: 18px; font-weight: 700;
+    cursor: pointer; pointer-events: all;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 4px 24px rgba(0,180,216,0.4);
+  }
+  #respawnBtn:hover { transform: scale(1.05); box-shadow: 0 6px 32px rgba(0,180,216,0.6); }
+  @keyframes deathPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.85;transform:scale(0.97)} }
+
+  /* Start screen */
+  #startScreen {
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at 50% 60%, #021824 0%, #010d18 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; z-index: 100; overflow-y: auto; padding: 20px 0;
+  }
+  #startScreen h1 {
+    font-size: 52px; font-weight: 900; color: #00b4d8;
+    text-shadow: 0 0 60px rgba(0,180,216,0.5);
+    letter-spacing: -2px; margin-bottom: 2px; margin-top: 0;
+  }
+  #startScreen .tagline { font-size: 12px; color: rgba(255,255,255,0.35); margin-bottom: 28px; letter-spacing: 3px; text-transform: uppercase; }
+
+  #themeGrid {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 12px; width: min(780px, 96vw); margin-bottom: 24px;
+  }
+  .theme-card {
+    background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.1);
+    border-radius: 14px; padding: 14px 10px 12px; cursor: pointer;
+    transition: transform 0.18s, border-color 0.18s, background 0.18s, box-shadow 0.18s;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    user-select: none; position: relative; overflow: hidden;
+  }
+  .theme-card:hover { transform: translateY(-3px) scale(1.03); background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.3); }
+  .theme-card.selected { border-color: var(--tc, #00b4d8); background: rgba(0,0,0,0.3); box-shadow: 0 0 20px var(--tc, #00b4d8), inset 0 0 20px rgba(0,0,0,0.3); transform: translateY(-3px) scale(1.03); }
+  .theme-card .tc-preview { width: 72px; height: 72px; border-radius: 50%; overflow: hidden; }
+  .theme-card .tc-name { font-size: 13px; font-weight: 700; color: #fff; text-align: center; }
+  .theme-card .tc-desc { font-size: 10px; color: rgba(255,255,255,0.4); text-align: center; line-height: 1.4; }
+  .theme-card .tc-badge {
+    position: absolute; top: 8px; right: 8px;
+    font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 6px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .theme-card .selected-check {
+    position: absolute; top: 7px; left: 7px;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--tc, #00b4d8); display: none;
+    align-items: center; justify-content: center;
+    font-size: 11px; color: #000; font-weight: 900;
+  }
+  .theme-card.selected .selected-check { display: flex; }
+
+  #startBtn {
+    background: linear-gradient(135deg, #00b4d8, #0077b6);
+    border: none; border-radius: 14px; padding: 16px 52px;
+    color: #fff; font-size: 18px; font-weight: 700;
+    cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 4px 32px rgba(0,180,216,0.5);
+  }
+  #startBtn:hover { transform: scale(1.06); box-shadow: 0 8px 48px rgba(0,180,216,0.7); }
+  .start-tip { font-size: 11px; color: rgba(255,255,255,0.25); margin-top: 14px; text-align: center; line-height: 1.8; }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+
+  #shieldFlash {
+    position: fixed; inset: 0; background: rgba(0,100,255,0.15);
+    pointer-events: none; z-index: 50; opacity: 0;
+    transition: opacity 0.1s;
+  }
+  #powerupFlash {
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 50; opacity: 0;
+    transition: opacity 0.3s;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="hud">
+  <div id="scorePanel">
+    <div class="label">Tamanho</div>
+    <div class="value" id="sizeVal">10</div>
+    <div class="sub" id="killVal">0 peixes devorados</div>
+  </div>
+
+  <div id="pingPanel">
+    <div class="online" id="onlineCount">● ONLINE • 847 jogadores</div>
+    <div class="ping" id="pingVal">Ping: 42ms</div>
+  </div>
+
+  <div id="ranking">
+    <div class="rank-title">🏆 Top Oceano</div>
+    <div id="rankList"></div>
+  </div>
+
+  <div id="powerupsHUD">
+    <div class="pu-slot" id="pu-shield">
+      <div class="pu-icon">🛡️</div>
+      <div class="pu-name">Escudo</div>
+      <div class="pu-timer" id="shield-timer">—</div>
+      <div class="pu-bar" id="shield-bar" style="width:0%"></div>
+    </div>
+    <div class="pu-slot" id="pu-speed">
+      <div class="pu-icon">⚡</div>
+      <div class="pu-name">Turbo</div>
+      <div class="pu-timer" id="speed-timer">—</div>
+      <div class="pu-bar" id="speed-bar" style="width:0%"></div>
+    </div>
+    <div class="pu-slot" id="pu-magnet">
+      <div class="pu-icon">🧲</div>
+      <div class="pu-name">Imã</div>
+      <div class="pu-timer" id="magnet-timer">—</div>
+      <div class="pu-bar" id="magnet-bar" style="width:0%"></div>
+    </div>
+  </div>
+
+  <div id="minimap"><canvas id="minimapCanvas" width="120" height="120"></canvas></div>
+  <div id="muteBtn" onclick="toggleMute()">🔊</div>
+  <div id="fpsCounter">60 FPS</div>
+</div>
+
+<div id="deathScreen">
+  <h1>DEVORADO!</h1>
+  <div class="death-sub">Você foi engolido pelo oceano</div>
+  <div class="death-score" id="deathScore">Tamanho final: 10</div>
+  <button id="respawnBtn" onclick="respawn()">🐟 Renascer</button>
+</div>
+
+<div id="startScreen">
+  <h1>AquaSlither</h1>
+  <div class="tagline">Escolha seu peixe e mergulhe</div>
+
+  <div id="themeGrid">
+
+    <div class="theme-card selected" data-theme="0" style="--tc:#00b4d8" onclick="selectTheme(0,this)">
+      <div class="selected-check">✓</div>
+      <canvas class="tc-preview" width="72" height="72" id="prev0"></canvas>
+      <div class="tc-name">Oceano</div>
+      <div class="tc-desc">Clássico turquesa das profundezas</div>
+    </div>
+
+    <div class="theme-card" data-theme="1" style="--tc:#ff4d6d" onclick="selectTheme(1,this)">
+      <div class="selected-check">✓</div>
+      <div class="tc-badge" style="background:rgba(255,77,109,0.25);color:#ff4d6d">🔥 Fogo</div>
+      <canvas class="tc-preview" width="72" height="72" id="prev1"></canvas>
+      <div class="tc-name">Dragão de Fogo</div>
+      <div class="tc-desc">Escamas flamejantes e rastro de brasas</div>
+    </div>
+
+    <div class="theme-card" data-theme="2" style="--tc:#7fff00" onclick="selectTheme(2,this)">
+      <div class="selected-check">✓</div>
+      <div class="tc-badge" style="background:rgba(127,255,0,0.2);color:#7fff00">☢ Tóxico</div>
+      <canvas class="tc-preview" width="72" height="72" id="prev2"></canvas>
+      <div class="tc-name">Vírus Tóxico</div>
+      <div class="tc-desc">Verde radioativo com aura pulsante</div>
+    </div>
+
+    <div class="theme-card" data-theme="3" style="--tc:#bf7fff" onclick="selectTheme(3,this)">
+      <div class="selected-check">✓</div>
+      <div class="tc-badge" style="background:rgba(191,127,255,0.2);color:#bf7fff">✨ Mágico</div>
+      <canvas class="tc-preview" width="72" height="72" id="prev3"></canvas>
+      <div class="tc-name">Serpente Galáctica</div>
+      <div class="tc-desc">Corpo nebular com brilhos estelares</div>
+    </div>
+
+    <div class="theme-card" data-theme="4" style="--tc:#ffd700" onclick="selectTheme(4,this)">
+      <div class="selected-check">✓</div>
+      <div class="tc-badge" style="background:rgba(255,215,0,0.2);color:#ffd700">👑 Lendário</div>
+      <canvas class="tc-preview" width="72" height="72" id="prev4"></canvas>
+      <div class="tc-name">Dragão Dourado</div>
+      <div class="tc-desc">Escamas de ouro puro e glória eterna</div>
+    </div>
+
+    <div class="theme-card" data-theme="5" style="--tc:#00fff5" onclick="selectTheme(5,this)">
+      <div class="selected-check">✓</div>
+      <canvas class="tc-preview" width="72" height="72" id="prev5"></canvas>
+      <div class="tc-name">Fantasma Neon</div>
+      <div class="tc-desc">Invisível mas devastador</div>
+    </div>
+
+    <div class="theme-card" data-theme="6" style="--tc:#ff8c00" onclick="selectTheme(6,this)">
+      <div class="selected-check">✓</div>
+      <canvas class="tc-preview" width="72" height="72" id="prev6"></canvas>
+      <div class="tc-name">Cobra Coral</div>
+      <div class="tc-desc">Listras alaranjadas do recife</div>
+    </div>
+
+    <div class="theme-card" data-theme="7" style="--tc:#e0e0ff" onclick="selectTheme(7,this)">
+      <div class="selected-check">✓</div>
+      <div class="tc-badge" style="background:rgba(220,220,255,0.15);color:#e0e0ff">❄ Gelo</div>
+      <canvas class="tc-preview" width="72" height="72" id="prev7"></canvas>
+      <div class="tc-name">Serpente Glacial</div>
+      <div class="tc-desc">Cristais de gelo e frio ártico</div>
+    </div>
+
+  </div>
+
+  <button id="startBtn" onclick="startGame()">🌊 Mergulhar</button>
+  <div class="start-tip">Mouse para nadar • Clique para turbo • Colete orbes para crescer</div>
+</div>
+
+<div id="shieldFlash"></div>
+<div id="powerupFlash"></div>
+
+<script>
+// ═══════════════════════════════════════════
+// AUDIO ENGINE
+// ═══════════════════════════════════════════
+class AudioEngine {
+  constructor() {
+    this.ctx = null;
+    this.muted = false;
+    this.init();
+  }
+  init() {
+    try {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch(e) {}
+  }
+  resume() { if(this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); }
+  play(type) {
+    if(this.muted || !this.ctx) return;
+    this.resume();
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    try {
+      if(type === 'orb') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.linearRampToValueAtTime(880, now + 0.1);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        osc.start(now); osc.stop(now + 0.15);
+      } else if(type === 'death') {
+        [220, 110].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          const filter = ctx.createBiquadFilter();
+          osc.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, now);
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(800, now);
+          filter.frequency.exponentialRampToValueAtTime(200, now + 0.5);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+          osc.start(now + i * 0.02); osc.stop(now + 0.55);
+        });
+      } else if(type === 'powerup') {
+        [523, 659, 784, 1047].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + i * 0.08);
+          gain.gain.setValueAtTime(0, now + i * 0.08);
+          gain.gain.linearRampToValueAtTime(0.3, now + i * 0.08 + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.12);
+          osc.start(now + i * 0.08); osc.stop(now + i * 0.08 + 0.15);
+        });
+      } else if(type === 'shieldBreak') {
+        const bufLen = ctx.sampleRate * 0.3;
+        const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for(let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1) * (1 - i/bufLen);
+        const src = ctx.createBufferSource();
+        const filter = ctx.createBiquadFilter();
+        const gain = ctx.createGain();
+        src.buffer = buf;
+        src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+        filter.type = 'bandpass'; filter.frequency.setValueAtTime(2000, now);
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+        src.start(now);
+      } else if(type === 'kill') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(330, now);
+        osc.frequency.exponentialRampToValueAtTime(165, now + 0.3);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+        osc.start(now); osc.stop(now + 0.3);
+      }
+    } catch(e) {}
+  }
+  startBoost() {
+    if(this.muted || !this.ctx || this.boostOsc) return;
+    this.resume();
+    try {
+      this.boostOsc = this.ctx.createOscillator();
+      this.boostGain = this.ctx.createGain();
+      this.boostOsc.connect(this.boostGain);
+      this.boostGain.connect(this.ctx.destination);
+      this.boostOsc.type = 'square';
+      this.boostOsc.frequency.setValueAtTime(80, this.ctx.currentTime);
+      this.boostGain.gain.setValueAtTime(0.06, this.ctx.currentTime);
+      this.boostOsc.start();
+    } catch(e) {}
+  }
+  stopBoost() {
+    if(this.boostOsc) {
+      try { this.boostGain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.1); this.boostOsc.stop(this.ctx.currentTime + 0.1); } catch(e) {}
+      this.boostOsc = null; this.boostGain = null;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════
+const WORLD_RADIUS = 3000;
+const BASE_SPEED = 3;
+const BOOST_SPEED = 6;
+const SPEED_PU_SPEED = 9;
+const SEGMENT_SIZE = 5;
+const MAX_ORBS = 500;
+const SPATIAL_GRID = 120;
+const BOT_NAMES = ['Peixe-Espada','Tubarão','Piranha','Baiacu','Arraia','Atum','Salmão','Baleia','Polvo','Lagosta','Moreia','Cavalo-Marinho','Lula','Barracuda','Sardinha','Bagre','Garoupa','Robalo','Linguado','Anchova'];
+const BOT_COLORS = ['#1a6fa8','#00b4d8','#e07a5f','#f4d03f','#52b788','#9b5de5','#f15bb5','#fee440','#00bbf9','#00f5d4','#fb5607','#ff006e','#8338ec','#3a86ff','#06d6a0'];
+
+// ═══════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════
+function lerp(a, b, t) { return a + (b - a) * t; }
+function dist(ax, ay, bx, by) { const dx=ax-bx, dy=ay-by; return Math.sqrt(dx*dx+dy*dy); }
+function angle(ax, ay, bx, by) { return Math.atan2(by-ay, bx-ax); }
+function randRange(a, b) { return a + Math.random() * (b - a); }
+function randInt(a, b) { return Math.floor(randRange(a, b+1)); }
+function clamp(v, mn, mx) { return Math.max(mn, Math.min(mx, v)); }
+function lerpAngle(a, b, t) {
+  let d = b - a;
+  while(d > Math.PI) d -= Math.PI*2;
+  while(d < -Math.PI) d += Math.PI*2;
+  return a + d * t;
+}
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return {r,g,b};
+}
+
+// ═══════════════════════════════════════════
+// SPATIAL HASH
+// ═══════════════════════════════════════════
+class SpatialHash {
+  constructor(cellSize) { this.cs = cellSize; this.cells = new Map(); }
+  key(x, y) { return `${Math.floor(x/this.cs)},${Math.floor(y/this.cs)}`; }
+  insert(x, y, obj) {
+    const k = this.key(x, y);
+    if(!this.cells.has(k)) this.cells.set(k, []);
+    this.cells.get(k).push(obj);
+  }
+  query(x, y, r) {
+    const res = [];
+    const mn = Math.floor((x-r)/this.cs), mx = Math.floor((x+r)/this.cs);
+    const my = Math.floor((y-r)/this.cs), my2 = Math.floor((y+r)/this.cs);
+    for(let cx = mn; cx <= mx; cx++) for(let cy = my; cy <= my2; cy++) {
+      const k = `${cx},${cy}`;
+      if(this.cells.has(k)) res.push(...this.cells.get(k));
+    }
+    return res;
+  }
+  clear() { this.cells.clear(); }
+}
+
+// ═══════════════════════════════════════════
+// PARTICLE SYSTEM
+// ═══════════════════════════════════════════
+class Particle {
+  constructor(x, y, color) {
+    this.x = x; this.y = y;
+    const spd = randRange(1, 5);
+    const ang = randRange(0, Math.PI*2);
+    this.vx = Math.cos(ang)*spd; this.vy = Math.sin(ang)*spd;
+    this.life = 1; this.decay = randRange(0.015, 0.04);
+    this.size = randRange(3, 8);
+    this.color = color;
+    this.gravity = randRange(0.02, 0.08);
+  }
+  update() {
+    this.x += this.vx; this.y += this.vy;
+    this.vy += this.gravity;
+    this.vx *= 0.98; this.vy *= 0.98;
+    this.life -= this.decay;
+  }
+  draw(ctx, cx, cy) {
+    const sx = this.x - cx, sy = this.y - cy;
+    ctx.save();
+    ctx.globalAlpha = this.life;
+    ctx.fillStyle = this.color;
+    ctx.shadowBlur = 8; ctx.shadowColor = this.color;
+    ctx.beginPath();
+    ctx.arc(sx, sy, this.size * this.life, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+// ═══════════════════════════════════════════
+// ORB
+// ═══════════════════════════════════════════
+class Orb {
+  constructor(x, y, value, color) {
+    this.x = x; this.y = y;
+    this.value = value || 1;
+    this.color = color || `hsl(${randRange(160,220)},80%,60%)`;
+    this.r = 4 + this.value * 1.5;
+    this.phase = Math.random() * Math.PI * 2;
+    this.id = Math.random().toString(36).slice(2);
+    this.collectAnim = 0;
+    this.collecting = false;
+    this.vx = 0; this.vy = 0;
+  }
+  update(t) {
+    this.phase += 0.04;
+    if(this.vx || this.vy) {
+      this.x += this.vx; this.y += this.vy;
+      this.vx *= 0.88; this.vy *= 0.88;
+    }
+    if(this.collecting) { this.collectAnim += 0.15; }
+  }
+  draw(ctx, cx, cy) {
+    const sx = this.x - cx, sy = this.y - cy;
+    const pulse = Math.sin(this.phase) * 0.3 + 1;
+    const scale = this.collecting ? (1 + this.collectAnim) : pulse;
+    const alpha = this.collecting ? Math.max(0, 1 - this.collectAnim * 2) : 1;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.shadowBlur = 15; ctx.shadowColor = this.color;
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.arc(sx, sy, this.r * scale, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.beginPath();
+    ctx.arc(sx - this.r*0.2*scale, sy - this.r*0.2*scale, this.r*0.3*scale, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+// ═══════════════════════════════════════════
+// POWER-UP
+// ═══════════════════════════════════════════
+class PowerUp {
+  constructor() {
+    const ang = Math.random() * Math.PI * 2;
+    const r = Math.random() * WORLD_RADIUS * 0.8;
+    this.x = Math.cos(ang) * r;
+    this.y = Math.sin(ang) * r;
+    const types = ['shield','speed','magnet'];
+    this.type = types[randInt(0, 2)];
+    this.phase = Math.random() * Math.PI * 2;
+    this.id = Math.random().toString(36).slice(2);
+    this.r = 18;
+    this.timerAng = 0;
+    this.colors = { shield:'#3b82f6', speed:'#f4d03f', magnet:'#9b5de5' };
+    this.icons = { shield:'🛡️', speed:'⚡', magnet:'🧲' };
+    this.collected = false;
+  }
+  update() { this.phase += 0.03; this.timerAng = (this.timerAng + 0.02) % (Math.PI*2); }
+  draw(ctx, cx, cy) {
+    if(this.collected) return;
+    const sx = this.x - cx, sy = this.y - cy + Math.sin(this.phase) * 6;
+    const col = this.colors[this.type];
+    ctx.save();
+    ctx.shadowBlur = 20; ctx.shadowColor = col;
+    // Glow ring
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.4 + Math.sin(this.phase)*0.2;
+    ctx.beginPath();
+    ctx.arc(sx, sy, this.r + 6, 0, Math.PI*2);
+    ctx.stroke();
+    // Timer ring
+    ctx.globalAlpha = 0.8;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(sx, sy, this.r + 4, -Math.PI/2, -Math.PI/2 + this.timerAng);
+    ctx.stroke();
+    // Background
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = 'rgba(0,10,30,0.9)';
+    ctx.beginPath();
+    ctx.arc(sx, sy, this.r, 0, Math.PI*2);
+    ctx.fill();
+    // Icon
+    ctx.globalAlpha = 1;
+    ctx.font = `${this.r}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(this.icons[this.type], sx, sy);
+    ctx.restore();
+  }
+}
+
+// ═══════════════════════════════════════════
+// SNAKE (base for player and bots)
+// ═══════════════════════════════════════════
+class Snake {
+  constructor(x, y, color, name) {
+    this.x = x; this.y = y;
+    this.color = color;
+    this.name = name;
+    this.angle = Math.random() * Math.PI * 2;
+    this.speed = BASE_SPEED;
+    this.size = 10;
+    this.segments = [];
+    this.trail = [];
+    this.alive = true;
+    this.kills = 0;
+    // Power-up states
+    this.shield = false; this.shieldTime = 0;
+    this.speedBoost = false; this.speedTime = 0; this.speedDuration = 6000;
+    this.magnet = false; this.magnetTime = 0; this.magnetDuration = 10000;
+    this.shieldDuration = 8000;
+    // Visual
+    this.phase = Math.random() * Math.PI * 2;
+    this.glowAlpha = 0;
+    this.boostTrail = [];  // trail particles when boosting
+    const rgb = hexToRgb(color);
+    this.rgb = rgb;
+    // Init segments
+    for(let i = 0; i < Math.floor(this.size * SEGMENT_SIZE); i++) {
+      this.segments.push({ x: x - Math.cos(this.angle)*i*3, y: y - Math.sin(this.angle)*i*3 });
+    }
+  }
+  get headRadius() { return 10 + Math.sqrt(this.size) * 2.2; }
+  get bodyRadius() { return 7 + Math.sqrt(this.size) * 1.9; }
+
+  move(targetAngle, boosting) {
+    const turnSpeed = 0.08 + (boosting ? 0.02 : 0);
+    this.angle = lerpAngle(this.angle, targetAngle, turnSpeed);
+    const spd = boosting ? (this.speedBoost ? SPEED_PU_SPEED : BOOST_SPEED)
+                          : (this.speedBoost ? SPEED_PU_SPEED : BASE_SPEED);
+    this.x += Math.cos(this.angle) * spd;
+    this.y += Math.sin(this.angle) * spd;
+    // Clamp to world
+    const d = dist(0, 0, this.x, this.y);
+    if(d > WORLD_RADIUS - 50) {
+      const a = Math.atan2(this.y, this.x);
+      this.x = Math.cos(a) * (WORLD_RADIUS - 60);
+      this.y = Math.sin(a) * (WORLD_RADIUS - 60);
+    }
+    // Update segments
+    this.segments.unshift({ x: this.x, y: this.y });
+    const maxLen = Math.max(10, Math.floor(this.size * SEGMENT_SIZE * 3));
+    if(this.segments.length > maxLen) this.segments.length = maxLen;
+    this.phase += 0.1;
+    if(boosting && !this.speedBoost) {
+      this.size = Math.max(5, this.size - 0.015);
+      const trimLen = Math.max(10, Math.floor(this.size * SEGMENT_SIZE * 3));
+      if(this.segments.length > trimLen)
+        this.segments.length = trimLen;
+    }
+
+    // Spawn trail particles when boosting (boost OR speed power-up)
+    if(boosting || this.speedBoost) {
+      const segs = this.segments;
+      const tailIdx = Math.min(segs.length - 1, Math.floor(segs.length * 0.6));
+      const ts = segs[tailIdx] || segs[segs.length - 1];
+      for(let i = 0; i < 2; i++) {
+        const spread = (Math.random() - 0.5) * this.bodyRadius * 1.2;
+        const perpX = Math.cos(this.angle + Math.PI/2) * spread;
+        const perpY = Math.sin(this.angle + Math.PI/2) * spread;
+        this.boostTrail.push({
+          x: ts.x + perpX + (Math.random()-0.5)*4,
+          y: ts.y + perpY + (Math.random()-0.5)*4,
+          vx: -Math.cos(this.angle) * (0.5 + Math.random()*1.5) + (Math.random()-0.5)*0.8,
+          vy: -Math.sin(this.angle) * (0.5 + Math.random()*1.5) + (Math.random()-0.5)*0.8,
+          life: 1.0,
+          decay: 0.025 + Math.random()*0.03,
+          r: this.bodyRadius * (0.25 + Math.random()*0.35),
+          color: this.speedBoost ? '#f4d03f' : (this.theme && this.theme.trail ? this.theme.trail : this.color),
+        });
+      }
+    }
+    // Update trail particles
+    for(let i = this.boostTrail.length - 1; i >= 0; i--) {
+      const tp = this.boostTrail[i];
+      tp.x += tp.vx; tp.y += tp.vy;
+      tp.vx *= 0.93; tp.vy *= 0.93;
+      tp.r *= 0.97;
+      tp.life -= tp.decay;
+      if(tp.life <= 0) this.boostTrail.splice(i, 1);
+    }
+  }
+
+  updatePowerups(dt) {
+    if(this.shield && this.shieldTime > 0) { this.shieldTime -= dt; if(this.shieldTime <= 0) { this.shield = false; } }
+    if(this.speedBoost && this.speedTime > 0) { this.speedTime -= dt; if(this.speedTime <= 0) { this.speedBoost = false; } }
+    if(this.magnet && this.magnetTime > 0) { this.magnetTime -= dt; if(this.magnetTime <= 0) { this.magnet = false; } }
+  }
+
+  applyPowerup(type) {
+    if(type === 'shield') { this.shield = true; this.shieldTime = this.shieldDuration; }
+    else if(type === 'speed') { this.speedBoost = true; this.speedTime = this.speedDuration; }
+    else if(type === 'magnet') { this.magnet = true; this.magnetTime = this.magnetDuration; }
+  }
+
+  grow(amount) { this.size = Math.max(5, (this.size || 5) + amount); }
+
+  drawFish(ctx, cx, cy) {
+    if(!this.alive) return;
+    const seg = this.segments;
+    if(seg.length < 2) return;
+    const r = this.rgb;
+    const headR = this.headRadius;
+    const bodyR = this.bodyRadius;
+    const th = this.theme || null;
+    const bodyColor = th ? th.body : `rgba(${r.r},${r.g},${r.b},1)`;
+    const glowColor = th ? th.glow : this.color;
+
+    // Boost trail particles — drawn FIRST so they appear behind the body
+    if(this.boostTrail.length > 0) {
+      for(const tp of this.boostTrail) {
+        ctx.save();
+        ctx.globalAlpha = tp.life * 0.75;
+        ctx.fillStyle = tp.color;
+        ctx.shadowBlur = 10; ctx.shadowColor = tp.color;
+        ctx.beginPath();
+        ctx.arc(tp.x - cx, tp.y - cy, Math.max(0.5, tp.r), 0, Math.PI*2);
+        ctx.fill();
+        ctx.globalAlpha = tp.life * 0.4;
+        ctx.fillStyle = '#fff';
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.arc(tp.x - cx, tp.y - cy, Math.max(0.3, tp.r * 0.4), 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // Draw body segments
+    const step = Math.max(1, Math.floor(seg.length / 80));
+    for(let i = seg.length - 1; i >= step; i -= step) {
+      const s = seg[i];
+      const t = i / seg.length;
+      const sr = bodyR * (0.4 + 0.6 * (1 - t));
+      const alpha = 0.5 + 0.5 * (1 - t * 0.7);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = bodyColor;
+      ctx.shadowBlur = 4; ctx.shadowColor = glowColor;
+      ctx.beginPath();
+      ctx.arc(s.x - cx, s.y - cy, sr, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Tail
+    const tailSeg = seg[Math.min(seg.length - 1, Math.floor(seg.length * 0.85))];
+    const tailAngle = Math.atan2(seg[0].y - tailSeg.y, seg[0].x - tailSeg.x) + Math.PI;
+    const tailWag = Math.sin(this.phase * 1.5) * 0.4;
+    ctx.save();
+    ctx.translate(tailSeg.x - cx, tailSeg.y - cy);
+    ctx.rotate(tailAngle + tailWag);
+    ctx.fillStyle = th ? th.body : `rgba(${r.r},${r.g},${r.b},0.7)`;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-bodyR * 1.8, -bodyR * 1.2);
+    ctx.lineTo(-bodyR * 1.8, bodyR * 1.2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // Shield aura
+    if(this.shield) {
+      ctx.save();
+      ctx.globalAlpha = 0.3 + Math.sin(this.phase) * 0.1;
+      ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 3;
+      ctx.shadowBlur = 20; ctx.shadowColor = '#3b82f6';
+      ctx.beginPath();
+      ctx.arc(seg[0].x - cx, seg[0].y - cy, headR + 12 + Math.sin(this.phase)*3, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Magnet field lines
+    if(this.magnet) {
+      ctx.save();
+      ctx.globalAlpha = 0.2 + Math.sin(this.phase)*0.1;
+      ctx.strokeStyle = '#9b5de5'; ctx.lineWidth = 1;
+      for(let i = 0; i < 6; i++) {
+        const ang = (i / 6) * Math.PI * 2 + this.phase * 0.5;
+        ctx.beginPath();
+        ctx.arc(seg[0].x - cx, seg[0].y - cy, 100 + Math.sin(this.phase + i)*20, ang, ang + Math.PI * 0.4);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // Head
+    ctx.save();
+    ctx.fillStyle = this.color;
+    ctx.shadowBlur = 15; ctx.shadowColor = glowColor;
+    ctx.beginPath();
+    ctx.arc(seg[0].x - cx, seg[0].y - cy, headR, 0, Math.PI*2);
+    ctx.fill();
+    // Accent highlight
+    if(th && th.accent) {
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = th.accent;
+      ctx.shadowBlur = 0;
+      ctx.beginPath();
+      ctx.arc(seg[0].x - cx + Math.cos(this.angle-0.5)*headR*0.4, seg[0].y - cy + Math.sin(this.angle-0.5)*headR*0.4, headR*0.45, 0, Math.PI*2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    // Eye white
+    const eyeX = seg[0].x - cx + Math.cos(this.angle + 0.5) * headR * 0.55;
+    const eyeY = seg[0].y - cy + Math.sin(this.angle + 0.5) * headR * 0.55;
+    ctx.fillStyle = th ? th.eye : '#fff'; ctx.shadowBlur = 0;
+    ctx.beginPath(); ctx.arc(eyeX, eyeY, headR * 0.32, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = th ? th.pupil : '#111';
+    ctx.beginPath(); ctx.arc(eyeX + Math.cos(this.angle)*1.5, eyeY + Math.sin(this.angle)*1.5, headR*0.18, 0, Math.PI*2); ctx.fill();
+    // Fin
+    ctx.fillStyle = th ? th.fin : `rgba(${r.r},${r.g},${r.b},0.6)`;
+    ctx.save();
+    ctx.translate(seg[0].x - cx, seg[0].y - cy);
+    ctx.rotate(this.angle - Math.PI/2 + Math.sin(this.phase*0.8)*0.3);
+    ctx.beginPath();
+    ctx.ellipse(0, -headR*0.8, headR*0.3, headR*0.5, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+    ctx.restore();
+
+    // Theme special effect (drawExtra)
+    if(th && th.drawExtra) {
+      th.drawExtra(ctx, seg[0].x - cx, seg[0].y - cy, headR, this.phase);
+    }
+
+    // Name label
+    ctx.save();
+    ctx.font = `bold ${Math.max(10, headR * 0.8)}px Segoe UI`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillText(this.name, seg[0].x - cx + 1, seg[0].y - cy - headR - 6 + 1);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(this.name, seg[0].x - cx, seg[0].y - cy - headR - 6);
+    ctx.restore();
+  }
+}
+
+// ═══════════════════════════════════════════
+// BOT
+// ═══════════════════════════════════════════
+class Bot extends Snake {
+  constructor(x, y) {
+    const color = BOT_COLORS[randInt(0, BOT_COLORS.length-1)];
+    const name = BOT_NAMES[randInt(0, BOT_NAMES.length-1)];
+    super(x, y, color, name);
+    this.aggression = Math.random();
+    this.caution = Math.random();
+    this.mode = 'roam';
+    this.target = null;
+    this.orbitAngle = Math.random() * Math.PI * 2;
+    this.modeTimer = 0;
+    this.isBoosting = false;
+    this.size = Math.max(6, randRange(6, 20));
+    this.segments = [];
+    for(let i = 0; i < Math.floor(this.size * SEGMENT_SIZE); i++)
+      this.segments.push({ x: x - Math.cos(this.angle)*i*3, y: y - Math.sin(this.angle)*i*3 });
+  }
+
+  think(player, bots, orbs, dt) {
+    if(!this.alive) return;
+    this.modeTimer -= dt;
+    this.isBoosting = false;
+
+    const all = [player, ...bots].filter(s => s !== this && s.alive);
+
+    // Find threats (bigger fish nearby)
+    const threats = all.filter(s => s.size > this.size * 1.1 && dist(this.x, this.y, s.x, s.y) < 350);
+    // Find prey (smaller fish)
+    const prey = all.filter(s => s.size * 1.2 < this.size && dist(this.x, this.y, s.x, s.y) < 400);
+    // Find nearest orb
+    let nearOrb = null, nearOrbDist = 99999;
+    for(const o of orbs) {
+      const d = dist(this.x, this.y, o.x, o.y);
+      if(d < nearOrbDist) { nearOrbDist = d; nearOrb = o; }
+    }
+
+    // Decide mode
+    if(threats.length > 0 && this.caution > 0.3) {
+      this.mode = 'flee';
+    } else if(prey.length > 0 && this.aggression > 0.4 && this.modeTimer <= 0) {
+      this.mode = this.aggression > 0.7 ? 'hunt' : 'orbit';
+      this.target = prey[0];
+      this.modeTimer = 3000;
+    } else {
+      this.mode = 'forage';
+    }
+
+    let targetAngle = this.angle;
+
+    if(this.mode === 'flee') {
+      const threat = threats[0];
+      targetAngle = Math.atan2(this.y - threat.y, this.x - threat.x);
+      this.isBoosting = true;
+    } else if(this.mode === 'hunt' && this.target && this.target.alive) {
+      // Predict target position
+      const ahead = 30;
+      const tx = this.target.x + Math.cos(this.target.angle) * ahead;
+      const ty = this.target.y + Math.sin(this.target.angle) * ahead;
+      targetAngle = Math.atan2(ty - this.y, tx - this.x);
+      const d = dist(this.x, this.y, tx, ty);
+      if(d < 300) this.isBoosting = true;
+    } else if(this.mode === 'orbit' && this.target && this.target.alive) {
+      this.orbitAngle += 0.06;
+      const orbitR = this.target.headRadius + 80;
+      const ox = this.target.x + Math.cos(this.orbitAngle) * orbitR;
+      const oy = this.target.y + Math.sin(this.orbitAngle) * orbitR;
+      targetAngle = Math.atan2(oy - this.y, ox - this.x);
+    } else if(nearOrb && this.mode === 'forage') {
+      targetAngle = Math.atan2(nearOrb.y - this.y, nearOrb.x - this.x);
+    }
+
+    // Avoid world border
+    const dToCenter = dist(0, 0, this.x, this.y);
+    if(dToCenter > WORLD_RADIUS - 300) {
+      const awayAngle = Math.atan2(-this.y, -this.x);
+      targetAngle = lerpAngle(targetAngle, awayAngle, 0.5);
+    }
+
+    this.move(targetAngle, this.isBoosting);
+  }
+}
+
+// ═══════════════════════════════════════════
+// FAKE WEBSOCKET (multiplayer simulation)
+// ═══════════════════════════════════════════
+class FakeWebSocket {
+  constructor() {
+    this.listeners = {};
+    this.playerCount = 847;
+    this.pingVal = 42;
+    setInterval(() => {
+      this.playerCount += randInt(-3, 5);
+      this.pingVal = randInt(28, 95);
+      this._emit('stats_update', { players: this.playerCount, ping: this.pingVal });
+    }, 3000);
+  }
+  on(event, cb) {
+    if(!this.listeners[event]) this.listeners[event] = [];
+    this.listeners[event].push(cb);
+  }
+  _emit(event, data) {
+    setTimeout(() => {
+      (this.listeners[event] || []).forEach(cb => cb(data));
+    }, randRange(50, 150));
+  }
+  sendPlayerUpdate(player) {
+    this._emit('player_update', { id: 'me', x: player.x, y: player.y, size: player.size });
+  }
+}
+
+// ═══════════════════════════════════════════
+// BUBBLE SYSTEM
+// ═══════════════════════════════════════════
+class Bubble {
+  constructor() { this.reset(); }
+  reset() {
+    const ang = Math.random() * Math.PI * 2;
+    const r = Math.random() * WORLD_RADIUS;
+    this.x = Math.cos(ang) * r;
+    this.y = Math.sin(ang) * r;
+    this.r = randRange(2, 8);
+    this.vy = randRange(-0.3, -1.2);
+    this.vx = randRange(-0.2, 0.2);
+    this.alpha = randRange(0.1, 0.35);
+    this.wobble = Math.random() * Math.PI * 2;
+  }
+  update() {
+    this.y += this.vy;
+    this.x += this.vx + Math.sin(this.wobble) * 0.2;
+    this.wobble += 0.04;
+    if(this.y < -WORLD_RADIUS) this.reset();
+  }
+  draw(ctx, cx, cy) {
+    ctx.save();
+    ctx.globalAlpha = this.alpha;
+    ctx.strokeStyle = 'rgba(180,240,255,0.8)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(this.x - cx, this.y - cy, this.r, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+// ═══════════════════════════════════════════
+// GAME ENGINE
+// ═══════════════════════════════════════════
+class Game {
+  constructor() {
+    this.canvas = document.getElementById('gameCanvas');
+    this.ctx = this.canvas.getContext('2d');
+    this.mmCanvas = document.getElementById('minimapCanvas');
+    this.mmCtx = this.mmCanvas.getContext('2d');
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+
+    this.audio = new AudioEngine();
+    this.ws = new FakeWebSocket();
+    this.ws.on('stats_update', d => {
+      document.getElementById('onlineCount').textContent = `● ONLINE • ${d.players} jogadores`;
+      document.getElementById('pingVal').textContent = `Ping: ${d.ping}ms`;
+    });
+
+    this.mouse = { x: 0, y: 0 };
+    this.boosting = false;
+    this.running = false;
+    this.muted = false;
+
+    this.orbs = [];
+    this.powerups = [];
+    this.particles = [];
+    this.bubbles = [];
+    this.bots = [];
+    this.player = null;
+    this.spatialHash = new SpatialHash(SPATIAL_GRID);
+
+    this.lastTime = 0;
+    this.fpsFrames = 0; this.fpsLast = 0; this.fps = 60;
+    this.fpsArr = new Array(60).fill(60);
+
+    // Events
+    this.canvas.addEventListener('mousemove', e => {
+      this.mouse.x = e.clientX; this.mouse.y = e.clientY;
+    });
+    this.canvas.addEventListener('mousedown', e => {
+      if(e.button === 0) { this.boosting = true; this.audio.startBoost(); }
+    });
+    this.canvas.addEventListener('mouseup', e => {
+      if(e.button === 0) { this.boosting = false; this.audio.stopBoost(); }
+    });
+    document.addEventListener('mouseleave', () => { this.boosting = false; this.audio.stopBoost(); });
+
+    // For bubbles
+    for(let i = 0; i < 200; i++) this.bubbles.push(new Bubble());
+
+    // Preview canvas animation
+    this.animatePreview();
+  }
+
+  animatePreview() {
+    // Delegate to global theme preview system
+    if(typeof initThemePreviews === 'function') initThemePreviews();
+  }
+
+  resize() {
+    this.W = window.innerWidth;
+    this.H = window.innerHeight;
+    this.canvas.width = this.W;
+    this.canvas.height = this.H;
+  }
+
+  init() {
+    this.orbs = [];
+    this.powerups = [];
+    this.particles = [];
+    this.bots = [];
+
+    // Spawn orbs
+    for(let i = 0; i < MAX_ORBS; i++) this.spawnOrb();
+
+    // Power-ups
+    for(let i = 0; i < 8; i++) this.powerups.push(new PowerUp());
+
+    // Bots
+    for(let i = 0; i < 20; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const r = randRange(200, WORLD_RADIUS * 0.85);
+      this.bots.push(new Bot(Math.cos(ang)*r, Math.sin(ang)*r));
+    }
+
+    // Player — use selected theme
+    const th = FISH_THEMES[selectedTheme] || FISH_THEMES[0];
+    this.player = new Snake(0, 0, th.color, 'Você');
+    this.player.theme = th;
+    this.camX = 0; this.camY = 0; this.camZoom = 1.0;
+    this.kills = 0;
+
+    this.powerupSpawnTimer = 20000;
+    this.wsTickTimer = 0;
+  }
+
+  spawnOrb(x, y, color) {
+    if(this.orbs.length >= MAX_ORBS) return;
+    if(x === undefined) {
+      const ang = Math.random() * Math.PI * 2;
+      const r = Math.random() * WORLD_RADIUS * 0.95;
+      x = Math.cos(ang)*r; y = Math.sin(ang)*r;
+    }
+    const col = color || `hsl(${randRange(150,230)},75%,62%)`;
+    this.orbs.push(new Orb(x, y, 1, col));
+  }
+
+  spawnDeathOrbs(snake) {
+    const count = Math.floor(snake.size * 3);
+    for(let i = 0; i < count && this.orbs.length < MAX_ORBS; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const r = Math.random() * snake.headRadius * 3;
+      this.orbs.push(new Orb(snake.x + Math.cos(ang)*r, snake.y + Math.sin(ang)*r, 2, snake.color));
+    }
+    // Particles
+    for(let i = 0; i < 60; i++) this.particles.push(new Particle(snake.x, snake.y, snake.color));
+  }
+
+  checkCollisions() {
+    const p = this.player;
+    if(!p.alive) return;
+    const all = [p, ...this.bots];
+
+    // Build spatial hash of body segments
+    this.spatialHash.clear();
+    for(const s of all) {
+      if(!s.alive) continue;
+      const step = Math.max(3, Math.floor(s.segments.length / 40));
+      for(let i = 6; i < s.segments.length; i += step) {
+        this.spatialHash.insert(s.segments[i].x, s.segments[i].y, { snake: s, idx: i });
+      }
+    }
+
+    // Check player head vs all bodies
+    const headR = p.headRadius;
+    const nearby = this.spatialHash.query(p.x, p.y, headR + 20);
+    for(const entry of nearby) {
+      if(entry.snake === p) continue;
+      if(!entry.snake.alive) continue;
+      const seg = entry.snake.segments[entry.idx];
+      if(dist(p.x, p.y, seg.x, seg.y) < headR + entry.snake.bodyRadius * 0.7) {
+        if(p.shield) {
+          p.shield = false; p.shieldTime = 0;
+          this.audio.play('shieldBreak');
+          document.getElementById('shieldFlash').style.opacity = '1';
+          setTimeout(() => document.getElementById('shieldFlash').style.opacity = '0', 200);
+        } else {
+          this.killPlayer();
+          return;
+        }
+      }
+    }
+
+    // Check bots head vs player body
+    const pStep = Math.max(3, Math.floor(p.segments.length / 40));
+    for(const bot of this.bots) {
+      if(!bot.alive) continue;
+      const bh = bot.headRadius;
+      for(let i = 6; i < p.segments.length; i += pStep) {
+        const seg = p.segments[i];
+        if(dist(bot.x, bot.y, seg.x, seg.y) < bh + p.bodyRadius * 0.7) {
+          if(bot.shield) { bot.shield = false; bot.shieldTime = 0; }
+          else { this.killBot(bot); break; }
+        }
+      }
+    }
+
+    // Bot vs bot collisions
+    for(let i = 0; i < this.bots.length; i++) {
+      const bi = this.bots[i];
+      if(!bi.alive) continue;
+      for(let j = 0; j < this.bots.length; j++) {
+        if(i === j) continue;
+        const bj = this.bots[j];
+        if(!bj.alive) continue;
+        const step2 = Math.max(3, Math.floor(bj.segments.length / 20));
+        for(let k = 6; k < bj.segments.length; k += step2) {
+          const seg = bj.segments[k];
+          if(dist(bi.x, bi.y, seg.x, seg.y) < bi.headRadius + bj.bodyRadius * 0.7) {
+            if(bi.size < bj.size) { this.killBot(bi); break; }
+          }
+        }
+      }
+    }
+  }
+
+  killPlayer() {
+    this.player.alive = false;
+    this.spawnDeathOrbs(this.player);
+    this.audio.play('death');
+    document.getElementById('deathScore').textContent = `Tamanho final: ${Math.floor(this.player.size)}`;
+    document.getElementById('deathScreen').classList.add('show');
+    this.audio.stopBoost();
+  }
+
+  killBot(bot) {
+    bot.alive = false;
+    this.spawnDeathOrbs(bot);
+    this.audio.play('kill');
+    if(this.player.alive) { this.player.kills++; this.kills++; }
+    // Respawn after delay
+    setTimeout(() => {
+      const ang = Math.random() * Math.PI * 2;
+      const r = randRange(300, WORLD_RADIUS * 0.85);
+      const nb = new Bot(Math.cos(ang)*r, Math.sin(ang)*r);
+      this.bots[this.bots.indexOf(bot)] = nb;
+    }, 3000);
+  }
+
+  collectOrbs() {
+    const p = this.player;
+    if(!p.alive) return;
+    const magnetR = p.magnet ? 200 : 0;
+    const all = [p, ...this.bots.filter(b => b.alive)];
+
+    const toRemove = [];
+    for(let i = this.orbs.length - 1; i >= 0; i--) {
+      const o = this.orbs[i];
+      if(o.collecting && o.collectAnim > 0.7) { toRemove.push(i); continue; }
+      if(o.collecting) continue;
+
+      // Magnet attraction
+      if(p.magnet) {
+        const d = dist(p.x, p.y, o.x, o.y);
+        if(d < magnetR && d > 0) {
+          const force = 3 / d;
+          o.vx += (p.x - o.x) * force;
+          o.vy += (p.y - o.y) * force;
+        }
+      }
+
+      // Player collect
+      if(dist(p.x, p.y, o.x, o.y) < p.headRadius + o.r + (p.magnet ? 20 : 5)) {
+        o.collecting = true;
+        p.grow(o.value * 0.1);
+        this.audio.play('orb');
+        this.spawnOrb();
+        continue;
+      }
+
+      // Bot collect
+      for(const b of this.bots) {
+        if(!b.alive) continue;
+        if(dist(b.x, b.y, o.x, o.y) < b.headRadius + o.r + 5) {
+          o.collecting = true;
+          b.grow(o.value * 0.08);
+          this.spawnOrb();
+          break;
+        }
+      }
+    }
+    for(const i of toRemove.sort((a,b)=>b-a)) this.orbs.splice(i, 1);
+  }
+
+  collectPowerups() {
+    const p = this.player;
+    if(!p.alive) return;
+    for(const pu of this.powerups) {
+      if(pu.collected) continue;
+      if(dist(p.x, p.y, pu.x, pu.y) < p.headRadius + pu.r + 5) {
+        pu.collected = true;
+        p.applyPowerup(pu.type);
+        this.audio.play('powerup');
+        const flash = document.getElementById('powerupFlash');
+        const cols = { shield:'rgba(59,130,246,0.3)', speed:'rgba(244,208,63,0.3)', magnet:'rgba(155,93,229,0.3)' };
+        flash.style.background = cols[pu.type];
+        flash.style.opacity = '0.8';
+        setTimeout(() => flash.style.opacity = '0', 400);
+        // Schedule respawn
+        setTimeout(() => {
+          this.powerups[this.powerups.indexOf(pu)] = new PowerUp();
+        }, randRange(15000, 30000));
+      }
+    }
+    // Bots collect power-ups too
+    for(const bot of this.bots) {
+      if(!bot.alive) continue;
+      for(const pu of this.powerups) {
+        if(pu.collected) continue;
+        if(dist(bot.x, bot.y, pu.x, pu.y) < bot.headRadius + pu.r + 5) {
+          pu.collected = true;
+          bot.applyPowerup(pu.type);
+          setTimeout(() => { this.powerups[this.powerups.indexOf(pu)] = new PowerUp(); }, randRange(15000, 30000));
+        }
+      }
+    }
+  }
+
+  updateHUD(dt) {
+    const p = this.player;
+    document.getElementById('sizeVal').textContent = Math.floor(p.size);
+    document.getElementById('killVal').textContent = `${this.kills} peixes devorados`;
+
+    // Power-up timers
+    const pus = [
+      { key: 'shield', active: p.shield, time: p.shieldTime, dur: p.shieldDuration },
+      { key: 'speed', active: p.speedBoost, time: p.speedTime, dur: p.speedDuration },
+      { key: 'magnet', active: p.magnet, time: p.magnetTime, dur: p.magnetDuration },
+    ];
+    pus.forEach(pu => {
+      const slot = document.getElementById(`pu-${pu.key}`);
+      const timer = document.getElementById(`${pu.key}-timer`);
+      const bar = document.getElementById(`${pu.key}-bar`);
+      if(pu.active) {
+        slot.classList.add('active');
+        timer.textContent = (pu.time/1000).toFixed(1) + 's';
+        bar.style.width = Math.max(0, (pu.time/pu.dur)*100) + '%';
+      } else {
+        slot.classList.remove('active');
+        timer.textContent = '—'; bar.style.width = '0%';
+      }
+    });
+
+    // Ranking
+    const all = [p, ...this.bots.filter(b => b.alive)];
+    all.sort((a,b) => b.size - a.size);
+    const top5 = all.slice(0, 5);
+    const rankEl = document.getElementById('rankList');
+    rankEl.innerHTML = top5.map((s,i) => {
+      const isMe = s === p;
+      return `<div class="rank-item ${isMe?'me':''}">
+        <span class="rank-num">${i+1}</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.name}</span>
+        <span>${Math.floor(s.size)}</span>
+      </div>`;
+    }).join('');
+
+    // FPS
+    this.fpsFrames++;
+    if(performance.now() - this.fpsLast > 500) {
+      this.fps = Math.round(this.fpsFrames * 1000 / (performance.now() - this.fpsLast));
+      this.fpsFrames = 0; this.fpsLast = performance.now();
+      document.getElementById('fpsCounter').textContent = this.fps + ' FPS';
+    }
+  }
+
+  drawBackground() {
+    const ctx = this.ctx;
+    const cx = this.camX, cy = this.camY;
+    const W = this.W, H = this.H;
+    const zoom = this.camZoom || 1;
+
+    // Background
+    ctx.fillStyle = '#020d1a';
+    ctx.fillRect(0, 0, W, H);
+
+    // Grid dots (zoom-aware)
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.scale(zoom, zoom);
+    ctx.translate(-W / 2, -H / 2);
+    ctx.fillStyle = 'rgba(0,100,180,0.06)';
+    const gS = 80;
+    const sx = ((W/2 - cx) % gS + gS) % gS;
+    const sy = ((H/2 - cy) % gS + gS) % gS;
+    for(let x = sx - gS; x < W + gS; x += gS)
+      for(let y = sy - gS; y < H + gS; y += gS) {
+        ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI*2); ctx.fill();
+      }
+
+    // World border gradient
+    const wCX = W/2 - cx, wCY = H/2 - cy;
+    const grad = ctx.createRadialGradient(wCX, wCY, WORLD_RADIUS * 0.7, wCX, wCY, WORLD_RADIUS + 200);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(0.6, 'rgba(0,5,20,0.3)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.95)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(-W, -H, W*3, H*3);
+
+    // Border ring
+    ctx.strokeStyle = 'rgba(0,100,200,0.25)';
+    ctx.lineWidth = 4;
+    ctx.setLineDash([20, 15]);
+    ctx.beginPath();
+    ctx.arc(wCX, wCY, WORLD_RADIUS, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  drawMinimap() {
+    const ctx = this.mmCtx;
+    const p = this.player;
+    const scale = 60 / WORLD_RADIUS;
+    ctx.clearRect(0, 0, 120, 120);
+    ctx.fillStyle = 'rgba(0,10,30,0.85)';
+    ctx.beginPath(); ctx.arc(60, 60, 60, 0, Math.PI*2); ctx.fill();
+    // Bots
+    for(const b of this.bots) {
+      if(!b.alive) continue;
+      ctx.fillStyle = b.color;
+      ctx.beginPath();
+      ctx.arc(60 + b.x*scale, 60 + b.y*scale, 2, 0, Math.PI*2);
+      ctx.fill();
+    }
+    // Orbs (sample)
+    ctx.fillStyle = 'rgba(0,200,255,0.3)';
+    for(let i = 0; i < this.orbs.length; i += 5) {
+      const o = this.orbs[i];
+      ctx.beginPath(); ctx.arc(60+o.x*scale, 60+o.y*scale, 1, 0, Math.PI*2); ctx.fill();
+    }
+    // Player
+    if(p.alive) {
+      ctx.fillStyle = '#fff';
+      ctx.shadowBlur = 6; ctx.shadowColor = '#00b4d8';
+      ctx.beginPath(); ctx.arc(60+p.x*scale, 60+p.y*scale, 4, 0, Math.PI*2); ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+    // Clip
+    ctx.save(); ctx.strokeStyle='rgba(0,180,216,0.4)'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(60,60,59,0,Math.PI*2); ctx.stroke(); ctx.restore();
+  }
+
+  update(dt) {
+    if(!this.running) return;
+    const p = this.player;
+    if(!p.alive) return;
+
+    // Camera
+    const targetZoom = this.boosting ? 0.82 : (1.05 - Math.sqrt(Math.max(0, p.size - 10)) * 0.012);
+    this.camZoom = lerp(this.camZoom, clamp(targetZoom, 0.45, 1.15), 0.04);
+
+    // Predictive offset: camera leads slightly in movement direction
+    const leadDist = 80 / this.camZoom;
+    const targetCX = p.x + Math.cos(p.angle) * leadDist - this.W / 2;
+    const targetCY = p.y + Math.sin(p.angle) * leadDist - this.H / 2;
+    this.camX = lerp(this.camX, targetCX, 0.12);
+    this.camY = lerp(this.camY, targetCY, 0.12);
+
+    // Player movement — unproject mouse through zoom
+    const zoom = this.camZoom || 1;
+    const screenMX = (this.mouse.x - this.W / 2) / zoom + this.W / 2;
+    const screenMY = (this.mouse.y - this.H / 2) / zoom + this.H / 2;
+    const worldMX = screenMX + this.camX;
+    const worldMY = screenMY + this.camY;
+    const targetAngle = Math.atan2(worldMY - p.y, worldMX - p.x);
+    p.move(targetAngle, this.boosting);
+    p.updatePowerups(dt);
+
+    // Bots
+    for(const bot of this.bots) {
+      if(!bot.alive) continue;
+      bot.think(p, this.bots, this.orbs, dt);
+      bot.updatePowerups(dt);
+    }
+
+    // Orbs & bubbles
+    for(const o of this.orbs) o.update(performance.now() / 1000);
+    for(const b of this.bubbles) b.update();
+    for(const pu of this.powerups) pu.update();
+
+    // Particles
+    for(let i = this.particles.length - 1; i >= 0; i--) {
+      this.particles[i].update();
+      if(this.particles[i].life <= 0) this.particles.splice(i, 1);
+    }
+
+    this.collectOrbs();
+    this.collectPowerups();
+    this.checkCollisions();
+    this.updateHUD(dt);
+
+    // Power-up spawn
+    this.powerupSpawnTimer -= dt;
+    if(this.powerupSpawnTimer <= 0) {
+      if(this.powerups.filter(pu=>!pu.collected).length < 5) this.powerups.push(new PowerUp());
+      this.powerupSpawnTimer = randRange(15000, 30000);
+    }
+
+    // WS tick
+    this.wsTickTimer += dt;
+    if(this.wsTickTimer > 50) { this.ws.sendPlayerUpdate(p); this.wsTickTimer = 0; }
+  }
+
+  draw() {
+    const ctx = this.ctx;
+    const cx = this.camX, cy = this.camY;
+    const zoom = this.camZoom || 1;
+
+    this.drawBackground();
+
+    // Apply zoom centered on screen
+    ctx.save();
+    ctx.translate(this.W / 2, this.H / 2);
+    ctx.scale(zoom, zoom);
+    ctx.translate(-this.W / 2, -this.H / 2);
+
+    // Bubbles
+    for(const b of this.bubbles) b.draw(ctx, cx, cy);
+
+    // Orbs
+    for(const o of this.orbs) o.draw(ctx, cx, cy);
+
+    // Power-ups
+    for(const pu of this.powerups) pu.draw(ctx, cx, cy);
+
+    // Bots
+    for(const bot of this.bots) {
+      if(bot.alive) bot.drawFish(ctx, cx, cy);
+    }
+
+    // Player
+    if(this.player && this.player.alive) this.player.drawFish(ctx, cx, cy);
+
+    // Particles
+    for(const pt of this.particles) pt.draw(ctx, cx, cy);
+
+    ctx.restore();
+
+    // Minimap (outside zoom)
+    this.drawMinimap();
+
+    // Cursor dot (outside zoom, screen-space)
+    if(this.player && this.player.alive) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(this.mouse.x, this.mouse.y, 6, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  loop(ts) {
+    const dt = ts - this.lastTime;
+    this.lastTime = ts;
+    this.update(Math.min(dt, 50));
+    this.draw();
+    requestAnimationFrame(t => this.loop(t));
+  }
+
+  start() {
+    this.init();
+    this.running = true;
+    requestAnimationFrame(t => { this.lastTime = t; this.loop(t); });
+  }
+}
+
+// ═══════════════════════════════════════════
+// FISH THEMES
+// ═══════════════════════════════════════════
+const FISH_THEMES = [
+  {
+    id: 0, name: 'Oceano',
+    color: '#00b4d8', body: '#0096c7', accent: '#48cae4',
+    trail: '#90e0ef', eye: '#fff', pupil: '#003049',
+    glow: '#00b4d8', fin: '#023e8a',
+    drawExtra: null,
+  },
+  {
+    id: 1, name: 'Dragão de Fogo',
+    color: '#ff4d6d', body: '#c9184a', accent: '#ff758f',
+    trail: '#ff9f1c', eye: '#fff', pupil: '#1a0a00',
+    glow: '#ff4d6d', fin: '#800f2f',
+    drawExtra: (ctx, x, y, r, phase) => {
+      // Flame particles at head
+      for(let i = 0; i < 3; i++) {
+        const fa = phase * 3 + i * 2.1;
+        const fx = x + Math.cos(fa) * r * 0.4;
+        const fy = y + Math.sin(fa) * r * 0.4 - r * 0.3;
+        ctx.save(); ctx.globalAlpha = 0.5 + Math.sin(fa)*0.3;
+        ctx.fillStyle = i===0?'#ff9f1c':'#ff4d6d';
+        ctx.shadowBlur = 8; ctx.shadowColor = '#ff4d6d';
+        ctx.beginPath(); ctx.arc(fx, fy, r*0.18, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+      }
+    },
+  },
+  {
+    id: 2, name: 'Vírus Tóxico',
+    color: '#57cc04', body: '#38a003', accent: '#7fff00',
+    trail: '#ccff33', eye: '#000', pupil: '#7fff00',
+    glow: '#7fff00', fin: '#2d6a00',
+    drawExtra: (ctx, x, y, r, phase) => {
+      // Toxic spikes
+      ctx.save(); ctx.globalAlpha = 0.35 + Math.sin(phase*2)*0.15;
+      ctx.strokeStyle = '#7fff00'; ctx.lineWidth = 1.5;
+      for(let i = 0; i < 8; i++) {
+        const a = (i/8)*Math.PI*2 + phase*0.5;
+        ctx.beginPath();
+        ctx.moveTo(x + Math.cos(a)*r, y + Math.sin(a)*r);
+        ctx.lineTo(x + Math.cos(a)*(r+r*0.5), y + Math.sin(a)*(r+r*0.5));
+        ctx.stroke();
+      }
+      ctx.restore();
+    },
+  },
+  {
+    id: 3, name: 'Galáctica',
+    color: '#9b5de5', body: '#7b2d8b', accent: '#c77dff',
+    trail: '#e0aaff', eye: '#fff', pupil: '#10002b',
+    glow: '#c77dff', fin: '#3c096c',
+    drawExtra: (ctx, x, y, r, phase) => {
+      // Star sparkles
+      ctx.save();
+      for(let i = 0; i < 5; i++) {
+        const sa = (i/5)*Math.PI*2 + phase * 0.7;
+        const sr = r * (1.2 + Math.sin(phase*2+i)*0.4);
+        const sx2 = x + Math.cos(sa)*sr, sy2 = y + Math.sin(sa)*sr;
+        ctx.globalAlpha = 0.5 + Math.sin(phase+i)*0.4;
+        ctx.fillStyle = '#e0aaff'; ctx.shadowBlur = 6; ctx.shadowColor = '#c77dff';
+        ctx.beginPath(); ctx.arc(sx2, sy2, 2, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
+    },
+  },
+  {
+    id: 4, name: 'Dourado',
+    color: '#ffd700', body: '#e6a817', accent: '#fff176',
+    trail: '#ffecb3', eye: '#fff', pupil: '#4a2c00',
+    glow: '#ffd700', fin: '#b7791a',
+    drawExtra: (ctx, x, y, r, phase) => {
+      // Golden shimmer ring
+      ctx.save();
+      ctx.globalAlpha = 0.2 + Math.sin(phase*2)*0.15;
+      ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 2;
+      ctx.shadowBlur = 20; ctx.shadowColor = '#ffd700';
+      ctx.beginPath(); ctx.arc(x, y, r*1.35, 0, Math.PI*2); ctx.stroke();
+      ctx.globalAlpha = 0.1 + Math.sin(phase*2+1)*0.08;
+      ctx.beginPath(); ctx.arc(x, y, r*1.6, 0, Math.PI*2); ctx.stroke();
+      ctx.restore();
+    },
+  },
+  {
+    id: 5, name: 'Fantasma',
+    color: '#00fff5', body: '#00c8c0', accent: '#a8fffc',
+    trail: '#ffffff', eye: '#fff', pupil: '#000d0d',
+    glow: '#00fff5', fin: '#005f5b',
+    drawExtra: (ctx, x, y, r, phase) => {
+      // Ghost shimmer
+      ctx.save();
+      ctx.globalAlpha = 0.12 + Math.sin(phase)*0.08;
+      ctx.fillStyle = '#00fff5';
+      ctx.shadowBlur = 30; ctx.shadowColor = '#00fff5';
+      ctx.beginPath(); ctx.arc(x, y, r*1.8, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    },
+  },
+  {
+    id: 6, name: 'Coral',
+    color: '#ff8c00', body: '#e05c00', accent: '#ffb347',
+    trail: '#ffd59e', eye: '#fff', pupil: '#2a0a00',
+    glow: '#ff8c00', fin: '#7a2e00',
+    drawExtra: (ctx, x, y, r, phase) => {
+      // Stripe pattern on body hint
+      ctx.save();
+      ctx.globalAlpha = 0.25;
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, r*0.7, -Math.PI*0.4, Math.PI*0.4);
+      ctx.stroke();
+      ctx.restore();
+    },
+  },
+  {
+    id: 7, name: 'Glacial',
+    color: '#a8d8ea', body: '#6eb5d4', accent: '#e0f4ff',
+    trail: '#dff6ff', eye: '#fff', pupil: '#012a4a',
+    glow: '#a8d8ea', fin: '#1a6a8a',
+    drawExtra: (ctx, x, y, r, phase) => {
+      // Ice crystals
+      ctx.save(); ctx.strokeStyle = '#e0f4ff'; ctx.lineWidth = 1;
+      for(let i = 0; i < 4; i++) {
+        const ca = (i/4)*Math.PI*2 + phase*0.3;
+        ctx.globalAlpha = 0.3 + Math.sin(phase+i)*0.2;
+        const cx2 = x + Math.cos(ca)*r*1.3, cy2 = y + Math.sin(ca)*r*1.3;
+        ctx.beginPath(); ctx.moveTo(cx2-4, cy2); ctx.lineTo(cx2+4, cy2);
+        ctx.moveTo(cx2, cy2-4); ctx.lineTo(cx2, cy2+4);
+        ctx.stroke();
+      }
+      ctx.restore();
+    },
+  },
+];
+
+let selectedTheme = 0;
+
+function selectTheme(idx, el) {
+  selectedTheme = idx;
+  document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+// ═══════════════════════════════════════════
+// THEME PREVIEW CANVASES
+// ═══════════════════════════════════════════
+function initThemePreviews() {
+  FISH_THEMES.forEach((th, i) => {
+    const c = document.getElementById(`prev${i}`);
+    if(!c) return;
+    const ctx = c.getContext('2d');
+    let t = 0;
+    const W = 72, H = 72, cx = 36, cy = 36;
+    const draw = () => {
+      ctx.clearRect(0, 0, W, H);
+      // bg
+      ctx.fillStyle = '#010d18';
+      ctx.fillRect(0, 0, W, H);
+
+      const phase = t * 0.04;
+      const angle = Math.sin(phase * 0.6) * 0.5;
+      const r = 14;
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(angle);
+
+      // Trail hint
+      for(let s = 1; s <= 5; s++) {
+        ctx.save();
+        ctx.globalAlpha = (1 - s/5) * 0.4;
+        const rgb = hexToRgb(th.trail || th.color);
+        ctx.fillStyle = th.trail || th.color;
+        ctx.shadowBlur = 6; ctx.shadowColor = th.trail || th.color;
+        ctx.beginPath();
+        ctx.arc(-r*0.7 - s*5, Math.sin(phase + s)*3, r*0.3 * (1-s*0.1), 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Body
+      ctx.save();
+      ctx.shadowBlur = 18; ctx.shadowColor = th.glow;
+      ctx.fillStyle = th.color;
+      ctx.beginPath(); ctx.ellipse(0, 0, r*1.55, r, 0, 0, Math.PI*2); ctx.fill();
+      // Body accent stripe
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = th.accent;
+      ctx.beginPath(); ctx.ellipse(2, -2, r*0.7, r*0.4, 0, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+
+      // Tail
+      ctx.save();
+      ctx.fillStyle = th.body;
+      const tw = Math.sin(phase * 1.8) * 0.35;
+      ctx.rotate(tw);
+      ctx.beginPath();
+      ctx.moveTo(-r*1.4, 0);
+      ctx.lineTo(-r*2.2, -r*0.9);
+      ctx.lineTo(-r*2.2, r*0.9);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+
+      // Fin
+      ctx.save(); ctx.fillStyle = th.fin;
+      ctx.rotate(-Math.sin(phase*0.8)*0.25);
+      ctx.beginPath(); ctx.ellipse(0, -r*0.9, r*0.25, r*0.5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+
+      // Eye
+      ctx.fillStyle = th.eye;
+      ctx.beginPath(); ctx.arc(r*0.65, -r*0.28, r*0.28, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = th.pupil;
+      ctx.beginPath(); ctx.arc(r*0.68, -r*0.28, r*0.15, 0, Math.PI*2); ctx.fill();
+
+      ctx.restore();
+
+      // drawExtra (effects outside translate)
+      if(th.drawExtra) th.drawExtra(ctx, cx + Math.cos(angle)*r*0.5, cy + Math.sin(angle)*r*0.5, r, phase);
+
+      t++;
+      if(document.getElementById('startScreen').style.display !== 'none' ||
+         !document.getElementById('startScreen').style.display) {
+        requestAnimationFrame(draw);
+      }
+    };
+    draw();
+  });
+}
+
+// Start previews immediately on load
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(initThemePreviews, 100);
+});
+
+// ═══════════════════════════════════════════
+// GLOBAL INIT
+// ═══════════════════════════════════════════
+let game;
+
+function startGame() {
+  document.getElementById('startScreen').style.display = 'none';
+  if(!game) {
+    game = new Game();
+    game.start();
+  } else {
+    game.init();
+    game.running = true;
+  }
+  game.audio.resume();
+}
+
+function respawn() {
+  document.getElementById('deathScreen').classList.remove('show');
+  // Show theme picker again
+  document.getElementById('startScreen').style.display = 'flex';
+  // Re-start previews
+  setTimeout(initThemePreviews, 50);
+}
+
+function toggleMute() {
+  if(!game) return;
+  game.audio.muted = !game.audio.muted;
+  document.getElementById('muteBtn').textContent = game.audio.muted ? '🔇' : '🔊';
+  if(!game.audio.muted) game.audio.resume();
+}
+</script>
+</body>
+</html>
