@@ -90,10 +90,13 @@ export class GameEngine {
       
       let tooClose = false;
       for(const s of allSnakes) {
-        if(dist(x, y, s.x, s.y) < 150) {
-          tooClose = true;
-          break;
+        for(const seg of s.segments) {
+          if(dist(x, y, seg.x, seg.y) < 150) {
+            tooClose = true;
+            break;
+          }
         }
+        if(tooClose) break;
       }
       
       if(!tooClose) return {x, y};
