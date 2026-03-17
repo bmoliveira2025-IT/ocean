@@ -30,6 +30,17 @@ function App() {
   const handleStart = (nickname) => {
     setPlayerData({ ...playerData, nickname });
     setGameState('playing');
+    
+    // Request fullscreen for true mobile "tela cheia" experience
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {
+        // Fallback or ignore if blocked (e.g. some browsers or previous rejection)
+      });
+    } else if (document.documentElement.webkitRequestFullscreen) {
+      document.documentElement.webkitRequestFullscreen();
+    } else if (document.documentElement.msRequestFullscreen) {
+      document.documentElement.msRequestFullscreen();
+    }
   };
 
   return (

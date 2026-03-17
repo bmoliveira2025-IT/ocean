@@ -1,10 +1,17 @@
 /* src/styles/global.css */
 * { margin: 0; padding: 0; box-sizing: border-box; }
+html, body, #root, .App {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  position: fixed; /* Prevents bounce and scroll on mobile */
+}
 body { 
   background: #020d1a; 
   background-image: radial-gradient(rgba(0,180,216,0.05) 1px, transparent 1px);
   background-size: 50px 50px;
-  overflow: hidden; 
   font-family: 'Segoe UI', sans-serif; 
   color: #fff; 
 }
