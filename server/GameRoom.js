@@ -14,6 +14,13 @@ const lerpAngle = (a, b, t) => {
   return a + diff * t;
 };
 const distSq = (x1, y1, x2, y2) => (x2 - x1) ** 2 + (y2 - y1) ** 2;
+const distToSegmentSq = (px, py, vx, vy, wx, wy) => {
+  const l2 = distSq(vx, vy, wx, wy);
+  if (l2 === 0) return distSq(px, py, vx, vy);
+  let t = ((px - vx) * (wx - vx) + (py - vy) * (wy - vy)) / l2;
+  t = Math.max(0, Math.min(1, t));
+  return distSq(px, py, vx + t * (wx - vx), vy + t * (wy - vy));
+};
 const randomRange = (min, max) => Math.random() * (max - min) + min;
 
 const BOT_NAMES = [
@@ -163,11 +170,11 @@ class Snake {
       y: Math.round(this.y),
       angle: this.angle,
       score: Math.floor(this.score),
-      size: this.size,
       isBoosting: this.isBoosting,
       shieldTimer: this.shieldTimer,
       speedTimer: this.speedTimer,
       isBot: this.isBot,
+      isProtected: this.spawnProtection > 0,
       // Send only every 3rd segment to reduce bandwidth
       body: this.body.filter((_, i) => i % 3 === 0).slice(0, 60).map(s => [Math.round(s.x), Math.round(s.y)])
     };
@@ -343,21 +350,28 @@ class GameRoom {
     allSnakes.forEach(attacker => {
       if (attacker.dead || attacker.spawnProtection > 0) return;
       allSnakes.forEach(defender => {
-        if (attacker.dead) return; // FIX: Break if already died to another snake this tick!
-        if (defender === attacker || defender.dead) return;
-        defender.body.forEach((seg, i) => {
-          if (attacker.dead) return; // FIX: Break if already died to another segment this tick!
-          if (i < 3) return; // skip head segments
-          if (distSq(attacker.x, attacker.y, seg.x, seg.y) < (attacker.size * 0.8) ** 2) {
+        if (attacker.dead) return;
+        if (defender === attacker || defender.dead || defender.spawnProtection > 0) return;
+        
+        for (let i = 4; i < defender.body.length; i++) {
+          if (attacker.dead) break;
+          const seg = defender.body[i];
+          const prevSeg = defender.body[i - 1];
+          
+          const distSqToBody = distToSegmentSq(attacker.x, attacker.y, prevSeg.x, prevSeg.y, seg.x, seg.y);
+          const combinedRadius = (attacker.size * 0.6) + (defender.size * 0.7);
+          
+          if (distSqToBody < combinedRadius ** 2) {
             if (attacker.shieldTimer > 0) {
               attacker.shieldTimer = 0;
-              return;
+              break;
             }
             attacker.dead = true;
             this._dropSnakeOrbs(attacker);
             this.events.push({ type: 'death', deadId: attacker.id, killerId: defender.id, name: attacker.name, killerName: defender.name });
+            break;
           }
-        });
+        }
       });
     });
 

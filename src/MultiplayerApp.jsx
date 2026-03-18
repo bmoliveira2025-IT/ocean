@@ -33,11 +33,23 @@ const lerp = (a, b, t) => a + (b - a) * t;
 // ==========================================
 function drawSnake(ctx, snake, settings, t = 0) {
   if (!snake || !snake.body || snake.body.length === 0) return;
-  const { color, x, y, angle, size, isBoosting, shieldTimer, speedTimer, name, isKing } = snake;
+  const { color, x, y, angle, size, isBoosting, shieldTimer, speedTimer, name, isKing, isProtected } = snake;
   const skinType = (typeof snake.skinType === 'string') ? snake.skinType : 'cyclops';
   const boosting = isBoosting || (speedTimer > 0);
 
   ctx.save();
+  if (isProtected) {
+    // Efeito de piscar a cada 0.2 segundos (t é em segundos)
+    if (Math.floor(t * 10) % 2 === 0) ctx.globalAlpha = 0.4;
+    
+    // Anel de proteção dourado em volta
+    ctx.beginPath();
+    ctx.arc(x, y, size * 2.5 + Math.sin(t * 8) * 8, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(255, 215, 0, ${0.5 + Math.sin(t * 10) * 0.3})`;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+
   if (shieldTimer > 0) {
     ctx.beginPath();
     ctx.arc(x, y, size * 2 + Math.sin(t * 10) * 5, 0, Math.PI * 2);
@@ -300,11 +312,13 @@ export default function MultiplayerApp({ onBack }) {
           else if (dist > 3) { smooth.x += dx * 0.15; smooth.y += dy * 0.15; }
           smooth.body = serv.body; smooth.size = serv.size; smooth.score = serv.score;
           smooth.shieldTimer = serv.shieldTimer; smooth.speedTimer = serv.speedTimer;
+          smooth.isProtected = serv.isProtected;
         } else {
           // Remote snake: update targets
           smooth.targetX = serv.x; smooth.targetY = serv.y; smooth.targetAngle = serv.angle;
           smooth.targetBody = serv.body; smooth.size = serv.size; smooth.score = serv.score;
           smooth.shieldTimer = serv.shieldTimer; smooth.speedTimer = serv.speedTimer;
+          smooth.isProtected = serv.isProtected;
           smooth.isBoosting = serv.isBoosting; smooth.skinType = serv.skinType; smooth.name = serv.name; smooth.color = serv.color;
         }
       });
@@ -704,7 +718,8 @@ export default function MultiplayerApp({ onBack }) {
 
       {/* Lobby / Death screen */}
       {(uiState === 'LOBBY' || uiState === 'DIED' || uiState === 'CONNECTING') && (
-        <div className="absolute inset-0 bg-[#0f172a]/95 flex flex-col items-center justify-center z-50 text-white backdrop-blur-md p-4 overflow-hidden anim-fade-in">
+        <div className="absolute inset-0 bg-[#0f172a]/95 z-50 text-white backdrop-blur-md overflow-y-auto overflow-x-hidden anim-fade-in">
+          <div className="min-h-full flex flex-col items-center justify-center p-4">
           {/* Settings & Header Info */}
           <div className="absolute top-2 md:top-4 right-4 flex gap-2 z-10">
             <button onClick={() => setShowSettings(!showSettings)} className="bg-black/40 border border-white/20 p-2 rounded-full hover:bg-black/60 transition-all active:scale-90 shadow-lg">
@@ -813,6 +828,11 @@ export default function MultiplayerApp({ onBack }) {
                       {uiState === 'CONNECTING' ? 'Conectando...' : 'Entrar na Arena'}
                     </button>
                     
+                    {/* Botão Tela Cheia Visível Mobile Landscape */}
+                    <button onClick={() => { if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen(); }} className="bg-blue-600/80 hover:bg-blue-500 text-white font-bold py-2 md:py-3 px-8 rounded-full text-[10px] md:text-sm uppercase tracking-widest border border-white/20 flex items-center justify-center gap-2 transition-all opacity-80 mt-1">
+                      🔲 Tela Cheia (F11)
+                    </button>
+                    
                     {multiHighScore > 0 && (
                       <div className="flex flex-col items-center gap-0 opacity-60">
                         <p className="text-[8px] md:text-[10px] uppercase font-bold text-gray-500 tracking-[0.2em]">Recorde Pessoal</p>
@@ -828,6 +848,7 @@ export default function MultiplayerApp({ onBack }) {
               </>
             )}
           </div>
+         </div>
         </div>
       )}
       <style dangerouslySetInnerHTML={{__html: `
