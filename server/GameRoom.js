@@ -50,10 +50,11 @@ class PowerOrb extends Orb {
 }
 
 class Snake {
-  constructor(id, name, skinColor, isBot = false) {
+  constructor(id, name, skinColor, skinType, isBot = false) {
     this.id = id;
     this.name = name;
     this.color = skinColor || '#39ff14';
+    this.skinType = skinType || 'cyclops';
     this.isBot = isBot;
     this.x = randomRange(500, WORLD_SIZE - 500);
     this.y = randomRange(500, WORLD_SIZE - 500);
@@ -154,6 +155,7 @@ class Snake {
       id: this.id,
       name: this.name,
       color: this.color,
+      skinType: this.skinType,
       x: Math.round(this.x),
       y: Math.round(this.y),
       angle: this.angle,
@@ -202,8 +204,10 @@ class GameRoom {
     for (let i = 0; i < count; i++) {
       const name = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
       const colors = ['#00b4d8', '#e07a5f', '#52b788', '#f4d03f', '#9b59b6', '#ff4757'];
+      const skinTypes = ['cyclops', 'lula', 'dragon', 'chain', 'skeleton', 'dragon_neon', 'seahorse', 'skeleton_neon'];
       const color = colors[Math.floor(Math.random() * colors.length)];
-      const bot = new Snake(`bot_${i}_${Date.now()}`, name, color, true);
+      const skinType = skinTypes[Math.floor(Math.random() * skinTypes.length)];
+      const bot = new Snake(`bot_${i}_${Date.now()}`, name, color, skinType, true);
       bot.score = randomRange(300, 3000);
       this.bots.push(bot);
     }
@@ -213,8 +217,8 @@ class GameRoom {
     this.tickInterval = setInterval(() => this._tick(), 1000 / TICK_RATE);
   }
 
-  addPlayer(socketId, name, skinColor) {
-    const snake = new Snake(socketId, name, skinColor, false);
+  addPlayer(socketId, name, skinColor, skinType) {
+    const snake = new Snake(socketId, name, skinColor, skinType, false);
     this.players.set(socketId, snake);
     this.inputs.set(socketId, { angle: 0, isBoosting: false });
 

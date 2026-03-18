@@ -5,6 +5,26 @@ import { socket } from './socket';
 import { qualityManager } from './utils/QualityManager';
 import { SKINS, RARITY_STYLE } from './skins';
 
+const COLORS = {
+  blue: '#1a6fa8',
+  turquoise: '#00b4d8',
+  coral: '#e07a5f',
+  yellow: '#f4d03f',
+  green: '#52b788',
+  purple: '#9b59b6',
+  white: '#ffffff',
+  danger: '#ff4757',
+  neonGreen: '#39ff14', 
+  neonCyan: '#00ffff', 
+  neonPink: '#ff00ff', 
+  boneWhite: '#e0e0e0', 
+  classicRed: '#ef4444',
+  silver: '#9ca3af',
+  brGreen: '#009c3b',
+  brYellow: '#ffdf00',
+  brBlue: '#002776'
+};
+
 const WORLD_SIZE = 6000;
 const lerp = (a, b, t) => a + (b - a) * t;
 
@@ -13,35 +33,136 @@ const lerp = (a, b, t) => a + (b - a) * t;
 // ==========================================
 function drawSnake(ctx, snake, settings) {
   if (!snake || !snake.body || snake.body.length === 0) return;
-  const { color, x, y, angle, size, isBoosting, shieldTimer } = snake;
+  const { color, x, y, angle, size, isBoosting, shieldTimer, skinType = 'cyclops', name, isKing } = snake;
+
+  ctx.save();
   if (shieldTimer > 0) {
     ctx.beginPath();
-    ctx.arc(x, y, size * 2, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(0, 180, 216, 0.15)';
+    ctx.arc(x, y, size * 2 + Math.sin(Date.now() / 100) * 5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0, 180, 216, 0.2)';
     ctx.fill();
-    if (settings.glow) { ctx.strokeStyle = '#00b4d8'; ctx.lineWidth = 2; ctx.stroke(); }
+    if (settings.glow) { ctx.strokeStyle = COLORS.turquoise; ctx.lineWidth = 2; ctx.stroke(); }
   }
-  snake.body.forEach(([bx, by], i) => {
-    const p = 1 - (i / snake.body.length);
+
+  // Determine body source (local prediction gives {x,y}, server gives [x,y])
+  const bodyIter = snake.localBody ? snake.localBody.map(b => [b.x, b.y]) : snake.body;
+  const step = settings.label === 'Baixo' ? 2 : 1;
+
+  for (let i = bodyIter.length - 1; i >= 0; i -= step) {
+    const [bx, by] = bodyIter[i];
+    const p = 1 - (i / bodyIter.length);
     const s = size * (0.4 + 0.6 * p);
-    ctx.beginPath(); ctx.arc(bx, by, s, 0, Math.PI * 2);
-    const grad = ctx.createRadialGradient(bx, by, 0, bx, by, s);
-    if (isBoosting) { grad.addColorStop(0, '#f4d03f'); grad.addColorStop(1, '#d35400'); }
-    else { grad.addColorStop(0, color); grad.addColorStop(0.8, color); grad.addColorStop(1, 'rgba(0,0,0,0.4)'); }
-    ctx.fillStyle = grad; ctx.fill();
-  });
+
+    if (skinType === 'chain') {
+      ctx.save(); ctx.translate(bx, by);
+      let segAngle = angle;
+      if (i > 0) {
+        const [px, py] = bodyIter[i-1];
+        segAngle = Math.atan2(py - by, px - bx);
+      }
+      ctx.rotate(segAngle);
+      const isSideView = i % 2 === 0;
+      const metalGrad = ctx.createLinearGradient(-s, -s, s, s);
+      metalGrad.addColorStop(0, '#e5e7eb'); metalGrad.addColorStop(0.5, '#6b7280'); metalGrad.addColorStop(1, '#1f2937');
+      ctx.fillStyle = metalGrad; ctx.strokeStyle = '#000000'; ctx.lineWidth = s * 0.15;
+      ctx.beginPath();
+      if (isSideView) {
+        ctx.ellipse(0, 0, s*1.2, s*0.7, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(0, 0, s*0.6, s*0.25, 0, 0, Math.PI*2); ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fill();
+      } else {
+        ctx.ellipse(0, 0, s*0.4, s*0.9, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+      }
+      ctx.restore();
+    } else {
+      const cacheKey = `${skinType}_${color}_${isBoosting}`;
+      const segmentCanvas = ctx.segmentCache && ctx.segmentCache[cacheKey];
+      if (segmentCanvas) {
+        ctx.drawImage(segmentCanvas, bx - s, by - s, s * 2, s * 2);
+      } else {
+        ctx.beginPath(); ctx.arc(bx, by, s, 0, Math.PI * 2);
+        const grad = ctx.createRadialGradient(bx, by, 0, bx, by, s);
+        if (isBoosting) {
+          grad.addColorStop(0, COLORS.yellow); grad.addColorStop(1, '#d35400');
+        } else {
+          if (skinType === 'dragon') { grad.addColorStop(0, '#333333'); grad.addColorStop(0.8, '#111111'); grad.addColorStop(1, '#8b0000'); }
+          else if (skinType === 'dragon_neon') { grad.addColorStop(0, '#111111'); grad.addColorStop(0.7, '#222222'); grad.addColorStop(1, color); }
+          else if (skinType === 'seahorse') {
+            const stripe = Math.floor(i / 3) % 3; const segColor = stripe === 0 ? COLORS.brGreen : (stripe === 1 ? COLORS.brYellow : COLORS.brBlue);
+            grad.addColorStop(0, segColor); grad.addColorStop(0.8, segColor); grad.addColorStop(1, 'rgba(0,0,0,0.5)');
+          }
+          else if (skinType.startsWith('skeleton')) { grad.addColorStop(0, '#000000'); grad.addColorStop(0.5, '#1a1a1a'); grad.addColorStop(0.8, color); grad.addColorStop(1, '#000000'); }
+          else { grad.addColorStop(0, color); grad.addColorStop(0.8, color); grad.addColorStop(1, 'rgba(0,0,0,0.4)'); }
+        }
+        ctx.fillStyle = grad; ctx.fill();
+      }
+    }
+  }
+
   ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
-  ctx.beginPath(); ctx.arc(0, 0, size, 0, Math.PI * 2);
-  const hg = ctx.createRadialGradient(0, 0, 0, 0, 0, size);
-  hg.addColorStop(0, color); hg.addColorStop(1, 'rgba(0,0,0,0.5)');
-  ctx.fillStyle = hg; ctx.fill();
-  ctx.fillStyle = '#00b4d8'; ctx.beginPath(); ctx.arc(size * 0.3, 0, size * 0.45, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#0a0a0a'; ctx.beginPath(); ctx.arc(size * 0.3 + 2, 0, size * 0.22, 0, Math.PI * 2); ctx.fill();
+  
+  if (skinType.startsWith('dragon')) {
+    const isNeon = skinType === 'dragon_neon';
+    const hornColor = isNeon ? color : '#4a0000'; const eyeColor = isNeon ? '#ffffff' : '#ff0000'; const eyeGlow = isNeon ? color : '#ff0000';
+    ctx.fillStyle = hornColor; if (isNeon) { ctx.shadowBlur = 10; ctx.shadowColor = color; }
+    ctx.beginPath(); ctx.moveTo(0, -size * 0.4); ctx.lineTo(-size * 1.5, -size * 1.3); ctx.lineTo(-size * 0.5, -size * 0.1); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0, size * 0.4); ctx.lineTo(-size * 1.5, size * 1.3); ctx.lineTo(-size * 0.5, size * 0.1); ctx.fill(); ctx.shadowBlur = 0;
+    ctx.beginPath(); ctx.ellipse(0, 0, size * 1.1, size * 0.9, 0, 0, Math.PI * 2);
+    const headGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 1.1);
+    headGrad.addColorStop(0, isNeon ? '#222' : '#444'); headGrad.addColorStop(1, '#050505');
+    ctx.fillStyle = headGrad; ctx.fill();
+    ctx.fillStyle = eyeColor; ctx.shadowBlur = 15; ctx.shadowColor = eyeGlow;
+    ctx.beginPath(); ctx.ellipse(size * 0.4, -size * 0.35, size * 0.35, size * 0.15, Math.PI / 8, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(size * 0.4, size * 0.35, size * 0.35, size * 0.15, -Math.PI / 8, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+    ctx.fillStyle = '#000000';
+    ctx.beginPath(); ctx.ellipse(size * 0.45, -size * 0.35, size * 0.05, size * 0.12, Math.PI / 8, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(size * 0.45, size * 0.35, size * 0.05, size * 0.12, -Math.PI / 8, 0, Math.PI * 2); ctx.fill();
+  } else if (skinType.startsWith('skeleton')) {
+    const isNeon = skinType === 'skeleton_neon';
+    ctx.beginPath(); ctx.ellipse(0, 0, size, size * 0.85, 0, 0, Math.PI * 2); ctx.fillStyle = color;
+    if (isNeon) { ctx.shadowBlur = 15; ctx.shadowColor = color; } ctx.fill(); ctx.shadowBlur = 0;
+    ctx.fillStyle = '#050505'; const eyeOffsetX = size * 0.3; const eyeSize = size * 0.35;
+    ctx.beginPath(); ctx.arc(eyeOffsetX, -size * 0.35, eyeSize, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(eyeOffsetX, size * 0.35, eyeSize, 0, Math.PI * 2); ctx.fill();
+    if (isNeon) { ctx.fillStyle = '#ffffff'; ctx.shadowBlur = 10; ctx.shadowColor = color; ctx.beginPath(); ctx.arc(eyeOffsetX + 2, -size * 0.35, eyeSize * 0.3, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(eyeOffsetX + 2, size * 0.35, eyeSize * 0.3, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; }
+    ctx.fillStyle = '#050505'; ctx.beginPath(); ctx.moveTo(size * 0.7, 0); ctx.lineTo(size * 0.5, -size * 0.1); ctx.lineTo(size * 0.5, size * 0.1); ctx.fill();
+  } else if (skinType === 'chain') {
+    ctx.beginPath(); ctx.ellipse(0, 0, size * 1.1, size * 0.9, 0, 0, Math.PI * 2);
+    const headGrad = ctx.createLinearGradient(-size, -size, size, size); headGrad.addColorStop(0, '#e5e7eb'); headGrad.addColorStop(0.5, '#6b7280'); headGrad.addColorStop(1, '#111827');
+    ctx.fillStyle = headGrad; ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = size * 0.1; ctx.stroke();
+    ctx.fillStyle = '#ff0000'; ctx.shadowBlur = 15; ctx.shadowColor = '#ff0000'; ctx.beginPath(); ctx.ellipse(size * 0.5, 0, size * 0.2, size * 0.6, 0, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+  } else if (skinType === 'seahorse') {
+    ctx.fillStyle = COLORS.brBlue; ctx.beginPath(); ctx.moveTo(-size * 0.5, -size * 0.8); ctx.lineTo(-size * 0.2, -size * 1.5); ctx.lineTo(size * 0.1, -size * 0.8); ctx.lineTo(size * 0.4, -size * 1.4); ctx.lineTo(size * 0.6, -size * 0.7); ctx.fill();
+    ctx.lineWidth = size * 0.7; ctx.strokeStyle = COLORS.brYellow; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(size * 1.8, 0); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, size * 1.1, 0, Math.PI * 2); const headGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 1.1); headGrad.addColorStop(0, COLORS.brGreen); headGrad.addColorStop(1, 'rgba(0,0,0,0.5)'); ctx.fillStyle = headGrad; ctx.fill();
+    const eyeOffsetX = size * 0.3; const eyeOffsetY = size * 0.65; const eyeR = size * 0.45;
+    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(eyeOffsetX, -eyeOffsetY, eyeR, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(eyeOffsetX, eyeOffsetY, eyeR, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#000000'; ctx.beginPath(); ctx.arc(eyeOffsetX + size*0.1, -eyeOffsetY, eyeR * 0.4, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(eyeOffsetX + size*0.1, eyeOffsetY, eyeR * 0.4, 0, Math.PI * 2); ctx.fill();
+  } else if (skinType === 'lula') {
+    ctx.beginPath(); ctx.arc(0, 0, size, 0, Math.PI * 2); const headGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, size); headGrad.addColorStop(0, color); headGrad.addColorStop(1, 'rgba(0,0,0,0.5)'); ctx.fillStyle = headGrad; ctx.fill();
+    ctx.lineWidth = size * 0.45; ctx.strokeStyle = color; ctx.lineCap = 'round'; const eyeLX = size * 0.9; const eyeLY = -size * 0.65; const eyeRX = size * 0.9; const eyeRY = size * 0.65;
+    ctx.beginPath(); ctx.moveTo(size * 0.2, -size * 0.3); ctx.lineTo(eyeLX, eyeLY); ctx.stroke(); ctx.beginPath(); ctx.moveTo(size * 0.2, size * 0.3); ctx.lineTo(eyeRX, eyeRY); ctx.stroke();
+    const eyeR = size * 0.5; const pupilR = size * 0.22; ctx.lineWidth = size * 0.15; ctx.strokeStyle = '#000000'; ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(eyeLX, eyeLY, eyeR, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.arc(eyeRX, eyeRY, eyeR, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#000000'; ctx.beginPath(); ctx.arc(eyeLX + eyeR * 0.3, eyeLY, pupilR, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(eyeRX + eyeR * 0.3, eyeRY, pupilR, 0, Math.PI * 2); ctx.fill();
+  } else {
+    ctx.beginPath(); ctx.arc(0, 0, size, 0, Math.PI * 2); const headGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, size); headGrad.addColorStop(0, color); headGrad.addColorStop(1, 'rgba(0,0,0,0.5)'); ctx.fillStyle = headGrad; ctx.fill();
+    const eyeOffsetX = size * 0.3; const eyeSize = size * 0.45; ctx.fillStyle = '#00b4d8'; ctx.beginPath(); ctx.arc(eyeOffsetX, 0, eyeSize, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#0a0a0a'; ctx.beginPath(); ctx.arc(eyeOffsetX + 2, 0, eyeSize * 0.5, 0, Math.PI * 2); ctx.fill();
+  }
+  
+  if (isKing) {
+    ctx.save(); ctx.translate(-size * 0.2, 0); ctx.shadowBlur = 15; ctx.shadowColor = '#fbbf24';
+    const crownGrad = ctx.createLinearGradient(0, -size * 0.6, 0, size * 0.6); crownGrad.addColorStop(0, '#fef08a'); crownGrad.addColorStop(0.5, '#fbbf24'); crownGrad.addColorStop(1, '#ca8a04');
+    ctx.fillStyle = crownGrad; ctx.strokeStyle = '#422006'; ctx.lineWidth = size * 0.1; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(size * 0.1, -size * 0.6); ctx.lineTo(-size * 0.4, -size * 0.65); ctx.lineTo(-size * 0.1, -size * 0.2); ctx.lineTo(-size * 0.8, 0); ctx.lineTo(-size * 0.1, size * 0.2); ctx.lineTo(-size * 0.4, size * 0.65); ctx.lineTo(size * 0.1, size * 0.6); ctx.quadraticCurveTo(size * 0.35, 0, size * 0.1, -size * 0.6); ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 10; ctx.shadowColor = '#60a5fa'; ctx.fillStyle = '#60a5fa'; ctx.beginPath(); ctx.arc(-size * 0.5, 0, size * 0.12, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
+  
   ctx.restore();
   if (size > 12) {
     ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = `${Math.max(10, size * 0.8)}px Arial`;
-    ctx.textAlign = 'center'; ctx.fillText(snake.name, x, y - size - 8);
+    ctx.textAlign = 'center'; ctx.fillText(name, x, y - size - 8);
   }
+  ctx.restore();
 }
 
 function drawOrb(ctx, orb) {
@@ -84,6 +205,12 @@ export default function MultiplayerApp({ onBack }) {
   const [powerupBanner, setPowerupBanner] = useState(null);
   const [activePowerups, setActivePowerups] = useState({ shield: 0, speed: 0 });
   const [connectionError, setConnectionError] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [bgmEnabled, setBgmEnabled] = useState(localStorage.getItem('ocean_bgm') !== 'false');
+  const [sfxEnabled, setSfxEnabled] = useState(localStorage.getItem('ocean_sfx') !== 'false');
+  const [multiHighScore, setMultiHighScore] = useState(() => {
+    return parseInt(localStorage.getItem('ocean_multi_highscore') || '0', 10);
+  });
   const joystick = useRef({ active: false, baseX: 0, baseY: 0 });
 
   useEffect(() => {
@@ -199,6 +326,14 @@ export default function MultiplayerApp({ onBack }) {
     socket.on('you_died', ({ score: finalScore }) => {
       cancelAnimationFrame(animFrameRef.current);
       setScore(finalScore);
+      const fs = Math.floor(finalScore / 10);
+      setMultiHighScore(prev => {
+        if (fs > prev) {
+          localStorage.setItem('ocean_multi_highscore', fs.toString());
+          return fs;
+        }
+        return prev;
+      });
       setUiState('DIED');
     });
 
@@ -242,13 +377,43 @@ export default function MultiplayerApp({ onBack }) {
         let diff = input.angle - pred.angle;
         while (diff < -Math.PI) diff += Math.PI * 2;
         while (diff > Math.PI) diff -= Math.PI * 2;
-        pred.angle += diff * Math.min(dt * 4.0, 1); // match server TURN_SPEED
-        const speed = 140 * (input.isBoosting ? 1.8 : 1); // match server speeds
+        pred.angle += diff * Math.min(dt * 4.0, 1);
+        const speed = 140 * (input.isBoosting ? 1.8 : 1);
         pred.x += Math.cos(pred.angle) * speed * dt;
         pred.y += Math.sin(pred.angle) * speed * dt;
         pred.x = Math.max(0, Math.min(pred.x, WORLD_SIZE));
         pred.y = Math.max(0, Math.min(pred.y, WORLD_SIZE));
         pred.isBoosting = input.isBoosting;
+
+        // Smooth Body Client Prediction
+        if (!pred.path) {
+          pred.path = pred.body.map(p => ({ x: p[0], y: p[1] })).reverse();
+        }
+        pred.path.unshift({ x: pred.x, y: pred.y });
+        if (pred.path.length > 200) pred.path.length = 200;
+
+        const pLength = Math.floor(15 + pred.score / 100);
+        const pSize = 12 + Math.sqrt(pred.score) * 0.15;
+        const spacing = pred.skinType === 'chain' ? pSize * 0.6 : pSize * 0.25;
+
+        pred.localBody = [{ x: pred.x, y: pred.y }];
+        let pathIndex = 0; let distAccum = 0;
+        for (let i = 1; i < pLength; i++) {
+          let targetDist = i * spacing;
+          while (distAccum < targetDist && pathIndex < pred.path.length - 1) {
+            let p1 = pred.path[pathIndex]; let p2 = pred.path[pathIndex + 1];
+            let d = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+            if (distAccum + d >= targetDist) {
+              let t = (targetDist - distAccum) / d;
+              pred.localBody[i] = { x: lerp(p1.x, p2.x, t), y: lerp(p1.y, p2.y, t) };
+              break;
+            }
+            distAccum += d; pathIndex++;
+          }
+          if (pathIndex >= pred.path.length - 1) {
+            pred.localBody[i] = { ...pred.path[pred.path.length - 1] };
+          }
+        }
       }
 
       // Use predicted position for local player; server state for others
@@ -260,7 +425,31 @@ export default function MultiplayerApp({ onBack }) {
       if (me) {
         cameraRef.current.x = lerp(cameraRef.current.x, me.x, 0.1);
         cameraRef.current.y = lerp(cameraRef.current.y, me.y, 0.1);
-        cameraRef.current.zoom = lerp(cameraRef.current.zoom, Math.max(0.3, 1.1 * Math.pow(500 / Math.max(500, me.score || 500), 0.35)), 0.05);
+        // Exponencial maior (0.45) e base menor (0.2) pra afastar muito mais a câmera quando a cobra crescer
+        cameraRef.current.zoom = lerp(cameraRef.current.zoom, Math.max(0.2, 1.2 * Math.pow(500 / Math.max(500, me.score || 500), 0.45)), 0.05);
+      }
+
+      // Pre-initialize segment cache
+      if (!ctx.segmentCache) {
+        ctx.segmentCache = {};
+        SKINS.forEach(skin => {
+          [false, true].forEach(isBoost => {
+            const cacheKey = `${skin.type}_${skin.color}_${isBoost}`;
+            const offCvs = document.createElement('canvas'); offCvs.width = 100; offCvs.height = 100;
+            const offCtx = offCvs.getContext('2d');
+            const cXY = 50, r = 50;
+            const grad = offCtx.createRadialGradient(cXY, cXY, 0, cXY, cXY, r);
+            if (isBoost) { grad.addColorStop(0, COLORS.yellow); grad.addColorStop(1, '#d35400'); }
+            else {
+              if (skin.type === 'dragon') { grad.addColorStop(0, '#333333'); grad.addColorStop(0.8, '#111111'); grad.addColorStop(1, '#8b0000'); }
+              else if (skin.type === 'dragon_neon') { grad.addColorStop(0, '#111111'); grad.addColorStop(0.7, '#222222'); grad.addColorStop(1, skin.color); }
+              else if (skin.type.startsWith('skeleton')) { grad.addColorStop(0, '#000000'); grad.addColorStop(0.5, '#1a1a1a'); grad.addColorStop(0.8, skin.color); grad.addColorStop(1, '#000000'); }
+              else { grad.addColorStop(0, skin.color); grad.addColorStop(0.8, skin.color); grad.addColorStop(1, 'rgba(0,0,0,0.4)'); }
+            }
+            offCtx.fillStyle = grad; offCtx.beginPath(); offCtx.arc(cXY, cXY, r, 0, Math.PI * 2); offCtx.fill();
+            ctx.segmentCache[cacheKey] = offCvs;
+          });
+        });
       }
 
       const { x: camX, y: camY, zoom } = cameraRef.current;
@@ -361,11 +550,12 @@ export default function MultiplayerApp({ onBack }) {
     if (uiState === 'CONNECTING') return;
     const name = playerName.trim() || `Jogador${Math.floor(Math.random() * 999)}`;
     const skinColor = SKINS[selectedSkinIdx].color;
+    const skinType = SKINS[selectedSkinIdx].type;
     setConnectionError(null); setKillCount(0); setKillFeed([]); setLeaderboard([]);
     setPowerupBanner(null);
     setUiState('CONNECTING');
     socket.connect();
-    socket.once('connect', () => { socket.emit('join', { name, skinColor }); });
+    socket.once('connect', () => { socket.emit('join', { name, skinColor, skinType }); });
   };
 
   const handleLeave = () => {
@@ -522,60 +712,138 @@ export default function MultiplayerApp({ onBack }) {
 
       {/* Lobby / Death screen */}
       {(uiState === 'LOBBY' || uiState === 'DIED' || uiState === 'CONNECTING') && (
-        <div className="absolute inset-0 bg-[#0f172a]/95 flex flex-col items-center justify-center z-50 text-white backdrop-blur-md p-4">
-          <Logo className="w-16 h-16 mb-2 drop-shadow-[0_0_20px_rgba(168,85,247,0.4)]" />
-          <h1 className="text-4xl font-black tracking-tighter mb-1" style={{ background: 'linear-gradient(to right, #4ade80, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            ocean.io
-          </h1>
-          <p className="text-purple-400 font-bold text-sm mb-4 uppercase tracking-widest">Multiplayer Online 🌐</p>
+        <div className="absolute inset-0 bg-[#0f172a]/95 flex flex-col items-center justify-center z-50 text-white backdrop-blur-md p-4 overflow-hidden anim-fade-in">
+          {/* Settings & Header Info */}
+          <div className="absolute top-2 md:top-4 right-4 flex gap-2 z-10">
+            <button onClick={() => setShowSettings(!showSettings)} className="bg-black/40 border border-white/20 p-2 rounded-full hover:bg-black/60 transition-all active:scale-90 shadow-lg">
+              <span className="text-xl">⚙️</span>
+            </button>
+            <div className="bg-black/40 border border-yellow-500/50 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-yellow-400 font-bold text-base md:text-lg drop-shadow-[0_0_8px_rgba(250,204,21,0.3)] flex items-center gap-2">🌐 Online</div>
+          </div>
 
-          {uiState === 'DIED' && (
-            <div className="mb-4 bg-red-900/30 border border-red-500/40 px-6 py-3 rounded-2xl text-center">
-              <p className="text-red-400 font-black text-xl">Você foi devorado!</p>
-              <p className="text-white/60 text-sm">Score: {score}</p>
-            </div>
+          {/* Trocar Modo Button */}
+          {onBack && uiState === 'LOBBY' && (
+            <button onClick={onBack} className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-black/40 hover:bg-black/60 text-white/70 hover:text-white text-xs px-4 py-2 rounded-full border border-white/15 hover:border-white/30 backdrop-blur-sm transition-all">
+              ← Trocar Modo
+            </button>
           )}
-          {connectionError && (
-            <div className="mb-4 bg-red-900/30 border border-red-500/40 px-4 py-2 rounded-xl text-red-400 text-sm text-center max-w-xs">{connectionError}</div>
-          )}
 
-          <div className="flex flex-col gap-3 w-full max-w-sm">
+          {/* Settings Modal */}
+          {showSettings && (
+            <div className="absolute inset-0 z-[60] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setShowSettings(false)}>
+              <div className="bg-[#1e293b] border-2 border-white/10 p-6 rounded-3xl w-full max-w-sm shadow-2xl animate-pop-in" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-black uppercase tracking-widest text-white/90 font-sans italic">Configurações</h2>
+                  <button onClick={() => setShowSettings(false)} className="text-gray-400 hover:text-white text-3xl font-light">×</button>
+                </div>
+                
+                <div className="space-y-6">
+                  <div className="bg-black/20 p-4 rounded-2xl border border-white/5">
+                    <span className="font-bold text-white block mb-3 text-center uppercase text-xs tracking-widest">Qualidade Gráfica</span>
+                    <div className="flex gap-2">
+                       {['LOW', 'MEDIUM', 'HIGH'].map(lvl => (
+                        <button key={lvl} onClick={() => handleQuality(lvl)} className={`flex-1 py-2 text-[10px] font-black rounded-xl transition-all border-2 ${quality === lvl ? 'bg-purple-600 border-purple-400 text-white shadow-[0_0_15px_rgba(168,85,247,0.4)]' : 'bg-white/5 border-transparent text-gray-500 hover:bg-white/10'}`}>
+                          {lvl === 'LOW' ? 'BAIXO' : lvl === 'MEDIUM' ? 'MÉDIO' : 'ALTO'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
 
-            {/* Skin selector */}
-            <div className="flex items-center justify-between gap-3 bg-black/20 rounded-2xl p-3 border border-white/10">
-              <button onClick={() => setSelectedSkinIdx(i => (i === 0 ? SKINS.length - 1 : i - 1))} className="text-2xl text-gray-400 hover:text-white transition-all px-1">&lt;</button>
-              <div className="flex flex-col items-center gap-1 flex-1">
-                <div className="w-14 h-14 rounded-full border-4 shadow-lg" style={{ backgroundColor: SKINS[selectedSkinIdx].color, borderColor: SKINS[selectedSkinIdx].color, boxShadow: `0 0 20px ${SKINS[selectedSkinIdx].color}44` }} />
-                <span className="font-black text-xs tracking-widest uppercase" style={{ color: SKINS[selectedSkinIdx].color }}>{SKINS[selectedSkinIdx].name}</span>
-                <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${RARITY_STYLE[SKINS[selectedSkinIdx].rarity]}`}>{SKINS[selectedSkinIdx].rarity}</span>
+                <button onClick={() => setShowSettings(false)} className="w-full mt-8 bg-white/10 hover:bg-white/20 py-4 rounded-2xl font-bold transition-all uppercase text-xs tracking-[0.3em]">Fechar</button>
               </div>
-              <button onClick={() => setSelectedSkinIdx(i => (i === SKINS.length - 1 ? 0 : i + 1))} className="text-2xl text-gray-400 hover:text-white transition-all px-1">&gt;</button>
             </div>
+          )}
 
-            <input type="text" maxLength={16} value={playerName} onChange={e => setPlayerName(e.target.value)}
-              placeholder="Seu Nickname" onKeyDown={e => e.key === 'Enter' && handleJoin()}
-              className="bg-white/5 text-white placeholder-gray-600 px-6 py-4 rounded-2xl text-lg w-full text-center border-2 border-white/10 focus:border-purple-500/50 outline-none transition-all" />
+          <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12 w-full max-w-5xl h-full py-2">
+            {uiState === 'DIED' ? (
+              <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-16 animate-pop-in px-4 w-full max-w-5xl">
+                <div className="flex flex-col items-center md:items-start text-center md:text-left max-w-md">
+                  <h2 className="text-2xl md:text-5xl font-black text-red-500 mb-1 md:mb-4 drop-shadow-[0_0_15px_rgba(239,68,68,0.4)] uppercase tracking-tighter italic">Você foi Devorado</h2>
+                  <div className="bg-white/5 border border-white/10 p-4 md:p-6 rounded-2xl md:rounded-3xl backdrop-blur-sm shadow-2xl w-full">
+                    <p className="text-gray-400 text-[10px] md:text-xs uppercase font-bold tracking-widest mb-1">Comprimento Final</p>
+                    <p className="text-3xl md:text-5xl font-black text-white mb-2 md:mb-4 tracking-tighter">{Math.floor(score / 10)}</p>
+                    <div className="pt-4 border-t border-white/10 text-center md:text-left">
+                      <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Melhor Online</p>
+                      <p className="text-lg md:text-2xl font-black text-white">{multiHighScore}</p>
+                    </div>
+                  </div>
+                </div>
+                <button onClick={() => setUiState('LOBBY')} className="bg-purple-600 hover:bg-purple-500 text-white font-black py-4 md:py-6 px-12 md:px-16 rounded-full text-lg md:text-2xl shadow-[0_6px_0_#4c1d95] active:translate-y-[4px] active:shadow-none transition-all w-full md:w-auto uppercase tracking-widest shrink-0"> Voltar ao Lobby </button>
+              </div>
+            ) : (
+              <>
+                {/* Branding Column */}
+                <div className="flex flex-col items-center text-center max-w-xs md:max-w-md">
+                  <Logo className="hidden lg:block w-24 h-24 md:w-32 md:h-32 mb-1 md:mb-2 drop-shadow-[0_0_20px_rgba(168,85,247,0.4)]" />
+                  <h1 className="text-3xl md:text-6xl font-black tracking-tighter mb-0 md:mb-1" style={{ background: 'linear-gradient(to right, #4ade80, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 0 15px rgba(168, 85, 247, 0.3))' }}>ocean.io</h1>
+                  <p className="text-gray-500 text-[9px] md:text-xs font-bold uppercase tracking-[0.2em] mb-1 md:mb-2 px-4 italic">Sobreviva no Abismo</p>
+                  <p className="text-purple-400 font-black text-[8px] md:text-[10px] mb-4 uppercase tracking-[0.3em] flex items-center gap-1 opacity-80">Online Multiplayer 🌐</p>
+                  <div className="mt-2 md:mt-4 text-[8px] md:text-xs text-gray-600 uppercase font-black tracking-[0.2em] md:tracking-[0.4em] pointer-events-none px-6 opacity-60">
+                    {isMobile ? "Use o Joystick e o Botão de Raio" : "Mouse para guiar | Clique para Turbo"}
+                  </div>
+                </div>
 
-            {/* Quality selector */}
-            <div className="flex gap-2 justify-center">
-              {['Baixo', 'Médio', 'Alto'].map(q => (
-                <button key={q} onClick={() => handleQuality(q)}
-                  className={`flex-1 py-2 rounded-xl text-sm font-bold border-2 transition-all ${quality === q ? 'bg-purple-600 border-purple-400 text-white' : 'bg-white/5 border-white/10 text-white/50 hover:border-white/30'}`}>
-                  {q}
-                </button>
-              ))}
-            </div>
+                {/* Controls Column */}
+                <div className="flex flex-col items-center animate-fade-in w-72 md:w-[400px]">
+                  {connectionError && (
+                    <div className="mb-4 bg-red-900/30 border border-red-500/40 px-4 py-2 rounded-xl text-red-400 text-sm text-center w-full animate-shake">{connectionError}</div>
+                  )}
 
-            <button onClick={handleJoin} disabled={uiState === 'CONNECTING'}
-              className="bg-[#4ade80] hover:bg-[#22c55e] disabled:bg-gray-600 text-black font-black py-3.5 rounded-full text-xl shadow-[0_4px_0_#166534] active:translate-y-[4px] active:shadow-none transition-all uppercase tracking-tighter">
-              {uiState === 'CONNECTING' ? 'Conectando...' : '🌊 Entrar Online'}
-            </button>
-            <button onClick={onBack} className="text-gray-500 hover:text-gray-300 text-sm transition-all">
-              ← Voltar ao Menu
-            </button>
+                  <div className="flex items-center gap-4 md:gap-8 mb-4 md:mb-8 scale-90 md:scale-100 w-full justify-center">
+                    <button onClick={() => setSelectedSkinIdx(i => (i === 0 ? SKINS.length - 1 : i - 1))} className="text-4xl md:text-6xl text-gray-400 hover:text-white transition-all transform hover:scale-110 cursor-pointer p-2">&lt;</button>
+                    <div className="flex flex-col items-center justify-center w-28 md:w-56 group">
+                      <div className="w-20 h-20 md:w-36 md:h-36 rounded-full mb-2 md:mb-4 shadow-[0_12px_24px_rgba(0,0,0,0.8)] flex items-center justify-center relative overflow-hidden transition-all duration-300 border-4 scale-95 group-hover:scale-105" style={{ backgroundColor: SKINS[selectedSkinIdx].color, borderColor: SKINS[selectedSkinIdx].color, boxShadow: `0 0 30px ${SKINS[selectedSkinIdx].color}44` }}>
+                        <div className="w-5 md:w-8 h-5 md:h-8 bg-[#00b4d8] rounded-full flex items-center justify-center shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]"><div className="w-2 md:w-4 h-2 md:h-4 bg-black rounded-full ml-1"></div></div>
+                      </div>
+                      <div className="flex flex-col items-center gap-1.5 w-full">
+                        <span className={`text-[8px] md:text-[10px] px-3 py-0.5 rounded-full font-black uppercase tracking-widest ${RARITY_STYLE[SKINS[selectedSkinIdx].rarity]} shadow-md animate-pulse-subtle`}>
+                          {SKINS[selectedSkinIdx].rarity}
+                        </span>
+                        <span className="font-black text-[10px] md:text-lg tracking-widest uppercase transition-colors text-center px-4 py-1 rounded bg-black/40 w-full border border-white/5" style={{ color: SKINS[selectedSkinIdx].color }}>{SKINS[selectedSkinIdx].name}</span>
+                      </div>
+                    </div>
+                    <button onClick={() => setSelectedSkinIdx(i => (i === SKINS.length - 1 ? 0 : i + 1))} className="text-4xl md:text-6xl text-gray-400 hover:text-white transition-all transform hover:scale-110 cursor-pointer p-2">&gt;</button>
+                  </div>
+
+                  <div className="flex flex-col gap-2 md:gap-5 w-full px-4">
+                    <input type="text" maxLength={16} value={playerName} onChange={e => setPlayerName(e.target.value)}
+                      placeholder="Seu Nickname" onKeyDown={e => e.key === 'Enter' && handleJoin()}
+                      className="bg-white/5 text-white placeholder-gray-600 px-4 py-3 md:px-7 md:py-5 rounded-xl md:rounded-2xl text-sm md:text-xl w-full text-center border-2 border-white/10 focus:border-purple-500/50 outline-none transition-all focus:bg-white/10 shadow-inner" />
+
+                    <button onClick={handleJoin} disabled={uiState === 'CONNECTING'}
+                      className="bg-[#4ade80] hover:bg-[#22c55e] disabled:bg-gray-600 text-black font-black py-3 md:py-5 px-10 md:px-14 rounded-full text-base md:text-2xl shadow-[0_5px_0_#166534] active:translate-y-[4px] active:shadow-none transition-all uppercase tracking-tighter disabled:opacity-50">
+                      {uiState === 'CONNECTING' ? 'Conectando...' : 'Entrar na Arena'}
+                    </button>
+                    
+                    {multiHighScore > 0 && (
+                      <div className="flex flex-col items-center gap-0 opacity-60">
+                        <p className="text-[8px] md:text-[10px] uppercase font-bold text-gray-500 tracking-[0.2em]">Recorde Pessoal</p>
+                        <p className="text-sm md:text-xl font-black text-white">{multiHighScore}</p>
+                      </div>
+                    )}
+
+                    <button onClick={onBack} className="text-gray-500 hover:text-gray-300 text-[10px] md:text-sm transition-all mt-2 font-medium opacity-50 hover:opacity-100">
+                      ← Trocar Modo
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes fadeInUp { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
+        @keyframes pop-in { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
+        .animate-pop-in { animation: pop-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .animate-fade-in { animation: fade-in 0.5s ease-out; }
+        .animate-shake { animation: shake 0.4s ease-in-out; }
+        .animate-pulse-subtle { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+      `}} />
     </div>
   );
 }

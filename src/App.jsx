@@ -1310,7 +1310,8 @@ export default function OceanApp({ onBack }) {
     }
     if (s.player && !s.player.dead) {
       s.camera.x = lerp(s.camera.x, s.player.x, dt * 5); s.camera.y = lerp(s.camera.y, s.player.y, dt * 5);
-      s.camera.zoom = lerp(s.camera.zoom, Math.max(0.3, 1.1 * Math.pow(500 / Math.max(500, s.player.score), 0.35)), dt * 1.0);
+      // Exponencial maior (0.45) e base menor (0.2) pra afastar muito mais a câmera quando a cobra crescer
+      s.camera.zoom = lerp(s.camera.zoom, Math.max(0.2, 1.2 * Math.pow(500 / Math.max(500, s.player.score), 0.45)), dt * 1.0);
     }
     const viewW = canvas.width / s.camera.zoom; const viewH = canvas.height / s.camera.zoom;
     ctx.viewRect = { minX: s.camera.x - viewW/2, maxX: s.camera.x + viewW/2, minY: s.camera.y - viewH/2, maxY: s.camera.y + viewH/2 };

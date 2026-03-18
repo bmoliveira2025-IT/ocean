@@ -39,10 +39,10 @@ function getOrCreateRoom(roomId) {
 io.on('connection', (socket) => {
   console.log(`[+] Jogador conectado: ${socket.id}`);
 
-  socket.on('join', ({ name, skinColor, roomId = DEFAULT_ROOM }) => {
+  socket.on('join', ({ name, skinColor, skinType, roomId = DEFAULT_ROOM }) => {
     try {
       const room = getOrCreateRoom(roomId);
-      const { snake, orbs } = room.addPlayer(socket.id, name || 'Anônimo', skinColor || '#39ff14');
+      const { snake, orbs } = room.addPlayer(socket.id, name || 'Anônimo', skinColor || '#39ff14', skinType || 'cyclops');
       socket.join(roomId);
       socket.data.roomId = roomId;
 
