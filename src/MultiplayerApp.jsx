@@ -31,14 +31,15 @@ const lerp = (a, b, t) => a + (b - a) * t;
 // ==========================================
 // RENDERER
 // ==========================================
-function drawSnake(ctx, snake, settings) {
+function drawSnake(ctx, snake, settings, t = 0) {
   if (!snake || !snake.body || snake.body.length === 0) return;
-  const { color, x, y, angle, size, isBoosting, shieldTimer, skinType = 'cyclops', name, isKing } = snake;
+  const { color, x, y, angle, size, isBoosting, shieldTimer, speedTimer, skinType = 'cyclops', name, isKing } = snake;
+  const boosting = isBoosting || (speedTimer > 0);
 
   ctx.save();
   if (shieldTimer > 0) {
     ctx.beginPath();
-    ctx.arc(x, y, size * 2 + Math.sin(Date.now() / 100) * 5, 0, Math.PI * 2);
+    ctx.arc(x, y, size * 2 + Math.sin(t * 10) * 5, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(0, 180, 216, 0.2)';
     ctx.fill();
     if (settings.glow) { ctx.strokeStyle = COLORS.turquoise; ctx.lineWidth = 2; ctx.stroke(); }
@@ -74,14 +75,14 @@ function drawSnake(ctx, snake, settings) {
       }
       ctx.restore();
     } else {
-      const cacheKey = `${skinType}_${color}_${isBoosting}`;
+      const cacheKey = `${skinType}_${color}_${boosting}`;
       const segmentCanvas = ctx.segmentCache && ctx.segmentCache[cacheKey];
       if (segmentCanvas) {
         ctx.drawImage(segmentCanvas, bx - s, by - s, s * 2, s * 2);
       } else {
         ctx.beginPath(); ctx.arc(bx, by, s, 0, Math.PI * 2);
         const grad = ctx.createRadialGradient(bx, by, 0, bx, by, s);
-        if (isBoosting) {
+        if (boosting) {
           grad.addColorStop(0, COLORS.yellow); grad.addColorStop(1, '#d35400');
         } else {
           if (skinType === 'dragon') { grad.addColorStop(0, '#333333'); grad.addColorStop(0.8, '#111111'); grad.addColorStop(1, '#8b0000'); }
@@ -190,6 +191,7 @@ export default function MultiplayerApp({ onBack }) {
   const isMobileRef = useRef(false);
   const predictedMeRef = useRef(null);   // client-side prediction state
   const lastRenderRef = useRef(0);        // for per-frame dt
+  const smoothSnakesRef = useRef(new Map()); // id -> {x, y, angle, path, body}
 
   const [quality, setQuality] = useState(qualityManager.currentQuality);
   const [uiState, setUiState] = useState('LOBBY');
@@ -271,31 +273,49 @@ export default function MultiplayerApp({ onBack }) {
         });
       }
 
+      // Sync smoothSnakesRef
+      const currentIds = new Set(snakes.map(s => s.id));
+      const smoothSnakes = smoothSnakesRef.current;
+      
+      // Remove snakes that are gone
+      for (const [id] of smoothSnakes) {
+        if (!currentIds.has(id)) smoothSnakes.delete(id);
+      }
+
+      snakes.forEach(serv => {
+        let smooth = smoothSnakes.get(serv.id);
+        if (!smooth) {
+          smooth = { ...serv, path: serv.body.map(p => ({x:p[0], y:p[1]})).reverse() };
+          // If local, use prediction record
+          if (serv.id === myIdRef.current && predictedMeRef.current) {
+            smooth = predictedMeRef.current;
+          }
+          smoothSnakes.set(serv.id, smooth);
+        } else if (serv.id === myIdRef.current) {
+          // Reconcile local prediction with authoritative server position
+          const dx = serv.x - smooth.x, dy = serv.y - smooth.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist > 250) { smooth.x = serv.x; smooth.y = serv.y; smooth.angle = serv.angle; } 
+          else if (dist > 3) { smooth.x += dx * 0.15; smooth.y += dy * 0.15; }
+          smooth.body = serv.body; smooth.size = serv.size; smooth.score = serv.score;
+          smooth.shieldTimer = serv.shieldTimer; smooth.speedTimer = serv.speedTimer;
+        } else {
+          // Remote snake: update targets
+          smooth.targetX = serv.x; smooth.targetY = serv.y; smooth.targetAngle = serv.angle;
+          smooth.targetBody = serv.body; smooth.size = serv.size; smooth.score = serv.score;
+          smooth.shieldTimer = serv.shieldTimer; smooth.speedTimer = serv.speedTimer;
+          smooth.isBoosting = serv.isBoosting; smooth.skinType = serv.skinType; smooth.name = serv.name; smooth.color = serv.color;
+        }
+      });
+
       const me = snakes.find(s => s.id === myIdRef.current);
       if (me) {
-        // Reconcile client prediction with authoritative server position
-        if (predictedMeRef.current) {
-          const p = predictedMeRef.current;
-          const dx = me.x - p.x, dy = me.y - p.y;
-          const dist = Math.hypot(dx, dy);
-          if (dist > 250) {
-            p.x = me.x; p.y = me.y; p.angle = me.angle;
-          } else if (dist > 3) {
-            p.x += dx * 0.15; p.y += dy * 0.15;
-          }
-          p.body = me.body; p.size = me.size; p.color = me.color;
-          p.score = me.score;
-        } else {
-          predictedMeRef.current = { ...me, body: [...(me.body || [])] };
-        }
         setScore(Math.floor(me.score));
         setActivePowerups({ shield: me.shieldTimer || 0, speed: me.speedTimer || 0 });
-        // FIX 2: Leaderboard - update top 10
         const sorted = [...snakes].sort((a, b) => b.score - a.score);
         setRank(sorted.findIndex(s => s.id === myIdRef.current) + 1);
         setLeaderboard(sorted.slice(0, 10).map((s, i) => ({
-          rank: i + 1, name: s.name, score: Math.floor(s.score),
-          color: s.color, isMe: s.id === myIdRef.current
+          rank: i + 1, name: s.name, score: Math.floor(s.score), color: s.color, isMe: s.id === myIdRef.current
         })));
       } else if (myIdRef.current) {
         setUiState('DIED');
@@ -360,74 +380,85 @@ export default function MultiplayerApp({ onBack }) {
   }, [uiState]);
 
   const startRenderLoop = () => {
-    const render = () => {
+    const render = (time) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
+      const t = time / 1000; // time in seconds for animations
       const ctx = canvas.getContext('2d');
       const settings = settingsRef.current;
       const { snakes, orbs } = worldRef.current;
 
-      // --- Client-side prediction: advance local snake by frame dt ---
+      // --- Smooth Movement Update for all snakes ---
       const now = performance.now();
       const dt = Math.min((now - (lastRenderRef.current || now)) / 1000, 0.05);
       lastRenderRef.current = now;
-      const pred = predictedMeRef.current;
-      if (pred) {
-        const input = inputRef.current;
-        let diff = input.angle - pred.angle;
-        while (diff < -Math.PI) diff += Math.PI * 2;
-        while (diff > Math.PI) diff -= Math.PI * 2;
-        pred.angle += diff * Math.min(dt * 4.0, 1);
-        const speed = 140 * (input.isBoosting ? 1.8 : 1);
-        pred.x += Math.cos(pred.angle) * speed * dt;
-        pred.y += Math.sin(pred.angle) * speed * dt;
-        pred.x = Math.max(0, Math.min(pred.x, WORLD_SIZE));
-        pred.y = Math.max(0, Math.min(pred.y, WORLD_SIZE));
-        pred.isBoosting = input.isBoosting;
+      
+      const smoothSnakes = Array.from(smoothSnakesRef.current.values());
 
-        // Smooth Body Client Prediction
-        if (!pred.path) {
-          pred.path = pred.body.map(p => ({ x: p[0], y: p[1] })).reverse();
+      smoothSnakes.forEach(snake => {
+        if (snake.id === myIdRef.current) {
+          // Update local predicted snake
+          const input = inputRef.current;
+          let diff = input.angle - snake.angle;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          snake.angle += diff * Math.min(dt * 4.0, 1);
+          const speed = 140 * (input.isBoosting || snake.speedTimer > 0 ? 1.8 : 1);
+          snake.x += Math.cos(snake.angle) * speed * dt;
+          snake.y += Math.sin(snake.angle) * speed * dt;
+        } else {
+          // Lerp remote snake towards target
+          if (snake.targetX !== undefined) {
+            snake.x = lerp(snake.x, snake.targetX, 0.15);
+            snake.y = lerp(snake.y, snake.targetY, 0.15);
+            // Angle lerp
+            let diff = snake.targetAngle - snake.angle;
+            while (diff < -Math.PI) diff += Math.PI * 2;
+            while (diff > Math.PI) diff -= Math.PI * 2;
+            snake.angle += diff * 0.15;
+          }
         }
-        pred.path.unshift({ x: pred.x, y: pred.y });
-        if (pred.path.length > 200) pred.path.length = 200;
+        
+        // Boundaries
+        snake.x = Math.max(0, Math.min(snake.x, WORLD_SIZE));
+        snake.y = Math.max(0, Math.min(snake.y, WORLD_SIZE));
 
-        const pLength = Math.floor(15 + pred.score / 100);
-        const pSize = 12 + Math.sqrt(pred.score) * 0.15;
-        const spacing = pred.skinType === 'chain' ? pSize * 0.6 : pSize * 0.25;
+        // Update body path (shared logic for smoothness)
+        if (!snake.path) snake.path = snake.body.map(p => ({x:p[0], y:p[1]})).reverse();
+        snake.path.unshift({ x: snake.x, y: snake.y });
+        if (snake.path.length > 200) snake.path.length = 200;
 
-        pred.localBody = [{ x: pred.x, y: pred.y }];
+        const pLength = Math.floor(15 + snake.score / 100);
+        const pSize = 12 + Math.sqrt(snake.score) * 0.15;
+        const spacing = snake.skinType === 'chain' ? pSize * 0.6 : pSize * 0.25;
+
+        snake.localBody = [{ x: snake.x, y: snake.y }];
         let pathIndex = 0; let distAccum = 0;
         for (let i = 1; i < pLength; i++) {
           let targetDist = i * spacing;
-          while (distAccum < targetDist && pathIndex < pred.path.length - 1) {
-            let p1 = pred.path[pathIndex]; let p2 = pred.path[pathIndex + 1];
+          while (distAccum < targetDist && pathIndex < snake.path.length - 1) {
+            let p1 = snake.path[pathIndex]; let p2 = snake.path[pathIndex + 1];
             let d = Math.hypot(p2.x - p1.x, p2.y - p1.y);
             if (distAccum + d >= targetDist) {
-              let t = (targetDist - distAccum) / d;
-              pred.localBody[i] = { x: lerp(p1.x, p2.x, t), y: lerp(p1.y, p2.y, t) };
+              let t_lerp = (targetDist - distAccum) / d;
+              snake.localBody[i] = { x: lerp(p1.x, p2.x, t_lerp), y: lerp(p1.y, p2.y, t_lerp) };
               break;
             }
             distAccum += d; pathIndex++;
           }
-          if (pathIndex >= pred.path.length - 1) {
-            pred.localBody[i] = { ...pred.path[pred.path.length - 1] };
+          if (pathIndex >= snake.path.length - 1) {
+            snake.localBody[i] = { ...snake.path[snake.path.length - 1] };
           }
         }
-      }
+      });
 
-      // Use predicted position for local player; server state for others
-      const me = pred || snakes.find(s => s.id === myIdRef.current);
-      const renderSnakes = pred
-        ? snakes.map(s => s.id === myIdRef.current ? pred : s)
-        : snakes;
-
+      const me = smoothSnakesRef.current.get(myIdRef.current);
       if (me) {
         cameraRef.current.x = lerp(cameraRef.current.x, me.x, 0.1);
         cameraRef.current.y = lerp(cameraRef.current.y, me.y, 0.1);
-        // Exponencial maior (0.45) e base menor (0.2) pra afastar muito mais a câmera quando a cobra crescer
         cameraRef.current.zoom = lerp(cameraRef.current.zoom, Math.max(0.2, 1.2 * Math.pow(500 / Math.max(500, me.score || 500), 0.45)), 0.05);
       }
+      const renderSnakes = smoothSnakes;
 
       // Pre-initialize segment cache
       if (!ctx.segmentCache) {
@@ -484,47 +515,7 @@ export default function MultiplayerApp({ onBack }) {
         .filter(s => Math.abs(s.x - camX) < viewW / 2 + margin && Math.abs(s.y - camY) < viewH / 2 + margin)
         .sort((a, b) => a.size - b.size)
         .forEach(snake => {
-          if (!snake || !snake.body || snake.body.length === 0) return;
-          const { color, x, y, angle, size, isBoosting, shieldTimer } = snake;
-          // Body — skip every other segment on mobile
-          const step = mobile ? 2 : 1;
-          for (let i = 0; i < snake.body.length; i += step) {
-            const [bx, by] = snake.body[i];
-            const p = 1 - (i / snake.body.length);
-            const s = size * (0.4 + 0.6 * p);
-            ctx.beginPath(); ctx.arc(bx, by, s, 0, Math.PI * 2);
-            if (mobile) {
-              ctx.fillStyle = isBoosting ? '#f4d03f' : color;
-            } else {
-              const grad = ctx.createRadialGradient(bx, by, 0, bx, by, s);
-              if (isBoosting) { grad.addColorStop(0, '#f4d03f'); grad.addColorStop(1, '#d35400'); }
-              else { grad.addColorStop(0, color); grad.addColorStop(0.8, color); grad.addColorStop(1, 'rgba(0,0,0,0.4)'); }
-              ctx.fillStyle = grad;
-            }
-            ctx.fill();
-          }
-          // Head
-          ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
-          ctx.beginPath(); ctx.arc(0, 0, size, 0, Math.PI * 2);
-          ctx.fillStyle = color; ctx.fill();
-          if (!mobile) {
-            ctx.fillStyle = '#00b4d8'; ctx.beginPath(); ctx.arc(size * 0.3, 0, size * 0.45, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = '#0a0a0a'; ctx.beginPath(); ctx.arc(size * 0.3 + 2, 0, size * 0.22, 0, Math.PI * 2); ctx.fill();
-          }
-          ctx.restore();
-          // Shield ring
-          if (shieldTimer > 0 && !mobile) {
-            ctx.beginPath(); ctx.arc(x, y, size * 2, 0, Math.PI * 2);
-            ctx.strokeStyle = '#00b4d8'; ctx.lineWidth = 2; ctx.stroke();
-          }
-          // Name tag — skip for distant snakes when mobile
-          const screenDist = Math.hypot(x - camX, y - camY);
-          if (size > 12 && (!mobile || screenDist < 600)) {
-            ctx.fillStyle = 'rgba(255,255,255,0.7)';
-            ctx.font = `${Math.max(10, size * 0.8)}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.fillText(snake.name, x, y - size - 8);
-          }
+          drawSnake(ctx, snake, settings, t);
         });
       ctx.restore();
 
@@ -769,7 +760,7 @@ export default function MultiplayerApp({ onBack }) {
                     </div>
                   </div>
                 </div>
-                <button onClick={() => setUiState('LOBBY')} className="bg-purple-600 hover:bg-purple-500 text-white font-black py-4 md:py-6 px-12 md:px-16 rounded-full text-lg md:text-2xl shadow-[0_6px_0_#4c1d95] active:translate-y-[4px] active:shadow-none transition-all w-full md:w-auto uppercase tracking-widest shrink-0"> Voltar ao Lobby </button>
+                <button onClick={handleLeave} className="bg-purple-600 hover:bg-purple-500 text-white font-black py-4 md:py-6 px-12 md:px-16 rounded-full text-lg md:text-2xl shadow-[0_6px_0_#4c1d95] active:translate-y-[4px] active:shadow-none transition-all w-full md:w-auto uppercase tracking-widest shrink-0"> Voltar ao Lobby </button>
               </div>
             ) : (
               <>
