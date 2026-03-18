@@ -554,6 +554,19 @@ export default function MultiplayerApp({ onBack }) {
 
   const handleJoin = () => {
     if (uiState === 'CONNECTING') return;
+    // Solicitar tela cheia automaticamente (o clique é um user gesture válido)
+    try {
+      if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else if (document.documentElement.webkitRequestFullscreen) {
+        document.documentElement.webkitRequestFullscreen();
+      }
+      // Tentar bloquear orientação em landscape no mobile
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch(() => {});
+      }
+    } catch (e) { /* fullscreen may be denied, continue anyway */ }
+
     const name = playerName.trim() || `Jogador${Math.floor(Math.random() * 999)}`;
     const skinColor = SKINS[selectedSkinIdx].color;
     const skinType = SKINS[selectedSkinIdx].type;
