@@ -757,37 +757,46 @@ export default function MultiplayerApp({ onBack }) {
 
       {/* Lobby / Death screen */}
       {(uiState === 'LOBBY' || uiState === 'DIED' || uiState === 'CONNECTING') && (
-        <div className="absolute inset-0 bg-[#0f172a]/95 z-50 text-white backdrop-blur-md overflow-y-auto overflow-x-hidden anim-fade-in">
-          <div className="min-h-full flex flex-col items-center justify-center p-4">
-          {/* Settings & Header Info */}
-          <div className="absolute top-2 md:top-4 right-4 flex gap-2 z-10">
-            <button onClick={() => setShowSettings(!showSettings)} className="bg-black/40 border border-white/20 p-2 rounded-full hover:bg-black/60 transition-all active:scale-90 shadow-lg">
-              <span className="text-xl">⚙️</span>
-            </button>
-            <div className="bg-black/40 border border-yellow-500/50 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-yellow-400 font-bold text-base md:text-lg drop-shadow-[0_0_8px_rgba(250,204,21,0.3)] flex items-center gap-2">🌐 Online</div>
-          </div>
+        <div className="absolute inset-0 bg-[#0f172a] z-50 text-white flex flex-col overflow-hidden anim-fade-in">
 
-          {/* Trocar Modo Button */}
-          {onBack && uiState === 'LOBBY' && (
-            <button onClick={onBack} className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-black/40 hover:bg-black/60 text-white/70 hover:text-white text-xs px-4 py-2 rounded-full border border-white/15 hover:border-white/30 backdrop-blur-sm transition-all">
-              ← Trocar Modo
-            </button>
-          )}
+          {/* ── Navbar fixa no topo — flui normalmente, sem overlap ── */}
+          <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-white/5 bg-black/20 backdrop-blur-sm">
+            {/* Esquerda: Trocar Modo */}
+            <div className="flex items-center">
+              {onBack && uiState === 'LOBBY' ? (
+                <button onClick={onBack} className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-xs px-3 py-1.5 rounded-full border border-white/10 transition-all">
+                  ← Trocar Modo
+                </button>
+              ) : <div className="w-10" />}
+            </div>
+
+            {/* Centro: Logo */}
+            <h1 className="text-xl font-black tracking-tighter" style={{ background: 'linear-gradient(to right, #4ade80, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              ocean.io
+            </h1>
+
+            {/* Direita: Config + Online */}
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowSettings(!showSettings)} className="bg-white/5 hover:bg-white/15 border border-white/10 p-1.5 rounded-full transition-all">
+                <span className="text-base">⚙️</span>
+              </button>
+              <div className="bg-black/40 border border-yellow-500/40 px-2.5 py-1 rounded-full text-yellow-400 font-bold text-xs flex items-center gap-1">🌐 Online</div>
+            </div>
+          </div>
 
           {/* Settings Modal */}
           {showSettings && (
-            <div className="absolute inset-0 z-[60] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setShowSettings(false)}>
+            <div className="absolute inset-0 z-[60] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setShowSettings(false)}>
               <div className="bg-[#1e293b] border-2 border-white/10 p-6 rounded-3xl w-full max-w-sm shadow-2xl animate-pop-in" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-black uppercase tracking-widest text-white/90 font-sans italic">Configurações</h2>
+                  <h2 className="text-2xl font-black uppercase tracking-widest text-white/90 italic">Configurações</h2>
                   <button onClick={() => setShowSettings(false)} className="text-gray-400 hover:text-white text-3xl font-light">×</button>
                 </div>
-                
                 <div className="space-y-6">
                   <div className="bg-black/20 p-4 rounded-2xl border border-white/5">
                     <span className="font-bold text-white block mb-3 text-center uppercase text-xs tracking-widest">Qualidade Gráfica</span>
                     <div className="flex gap-2">
-                       {['LOW', 'MEDIUM', 'HIGH'].map(lvl => (
+                      {['LOW', 'MEDIUM', 'HIGH'].map(lvl => (
                         <button key={lvl} onClick={() => handleQuality(lvl)} className={`flex-1 py-2 text-[10px] font-black rounded-xl transition-all border-2 ${quality === lvl ? 'bg-purple-600 border-purple-400 text-white shadow-[0_0_15px_rgba(168,85,247,0.4)]' : 'bg-white/5 border-transparent text-gray-500 hover:bg-white/10'}`}>
                           {lvl === 'LOW' ? 'BAIXO' : lvl === 'MEDIUM' ? 'MÉDIO' : 'ALTO'}
                         </button>
@@ -795,122 +804,115 @@ export default function MultiplayerApp({ onBack }) {
                     </div>
                   </div>
                 </div>
-
                 <button onClick={() => setShowSettings(false)} className="w-full mt-8 bg-white/10 hover:bg-white/20 py-4 rounded-2xl font-bold transition-all uppercase text-xs tracking-[0.3em]">Fechar</button>
               </div>
             </div>
           )}
 
-          {/* Main Content */}
-          <div className="flex flex-col items-center justify-center gap-3 w-full max-w-5xl pt-12 md:pt-4">
-            {uiState === 'DIED' ? (
-              <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-16 animate-pop-in px-4 w-full max-w-5xl">
-                <div className="flex flex-col items-center md:items-start text-center md:text-left max-w-md">
-                  <h2 className="text-2xl md:text-5xl font-black text-red-500 mb-1 md:mb-4 drop-shadow-[0_0_15px_rgba(239,68,68,0.4)] uppercase tracking-tighter italic">Você foi Devorado</h2>
-                  <div className="bg-white/5 border border-white/10 p-4 md:p-6 rounded-2xl md:rounded-3xl backdrop-blur-sm shadow-2xl w-full">
-                    <p className="text-gray-400 text-[10px] md:text-xs uppercase font-bold tracking-widest mb-1">Comprimento Final</p>
-                    <p className="text-3xl md:text-5xl font-black text-white mb-2 md:mb-4 tracking-tighter">{Math.floor(score / 10)}</p>
-                    <div className="pt-4 border-t border-white/10 text-center md:text-left">
-                      <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Melhor Online</p>
-                      <p className="text-lg md:text-2xl font-black text-white">{multiHighScore}</p>
+          {/* ── Conteúdo Central (rolável em landscape) ── */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
+            <div className="min-h-full flex flex-col md:flex-row items-center justify-center gap-6 md:gap-16 p-4 md:p-8">
+
+              {uiState === 'DIED' ? (
+                <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-16 animate-pop-in w-full max-w-5xl">
+                  <div className="flex flex-col items-center md:items-start text-center md:text-left max-w-md">
+                    <h2 className="text-2xl md:text-5xl font-black text-red-500 mb-1 md:mb-4 drop-shadow-[0_0_15px_rgba(239,68,68,0.4)] uppercase tracking-tighter italic">Você foi Devorado</h2>
+                    <div className="bg-white/5 border border-white/10 p-4 md:p-6 rounded-2xl backdrop-blur-sm shadow-2xl w-full">
+                      <p className="text-gray-400 text-xs uppercase font-bold tracking-widest mb-1">Comprimento Final</p>
+                      <p className="text-3xl md:text-5xl font-black text-white mb-4 tracking-tighter">{Math.floor(score / 10)}</p>
+                      <div className="pt-3 border-t border-white/10">
+                        <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Melhor Online</p>
+                        <p className="text-xl md:text-2xl font-black text-white">{multiHighScore}</p>
+                      </div>
                     </div>
                   </div>
+                  <button onClick={handleLeave} className="bg-purple-600 hover:bg-purple-500 text-white font-black py-4 px-12 rounded-full text-xl shadow-[0_6px_0_#4c1d95] active:translate-y-1 active:shadow-none transition-all w-full md:w-auto uppercase tracking-widest">Voltar ao Lobby</button>
                 </div>
-                <button onClick={handleLeave} className="bg-purple-600 hover:bg-purple-500 text-white font-black py-4 md:py-6 px-12 md:px-16 rounded-full text-lg md:text-2xl shadow-[0_6px_0_#4c1d95] active:translate-y-[4px] active:shadow-none transition-all w-full md:w-auto uppercase tracking-widest shrink-0"> Voltar ao Lobby </button>
-              </div>
-            ) : (
-              <>
-                {/* ── Layout Principal ── */}
-                <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-12 w-full max-w-5xl">
-
-                  {/* Branding — oculto em telas pequenas landscape */}
-                  <div className="hidden md:flex flex-col items-center text-center max-w-md">
-                    <Logo className="w-24 h-24 mb-2 drop-shadow-[0_0_20px_rgba(168,85,247,0.4)]" />
-                    <h1 className="text-3xl md:text-6xl font-black tracking-tighter mb-1" style={{ background: 'linear-gradient(to right, #4ade80, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 0 15px rgba(168, 85, 247, 0.3))' }}>ocean.io</h1>
-                    <p className="text-gray-500 text-xs font-bold uppercase tracking-[0.2em] mb-1 italic">Sobreviva no Abismo</p>
-                    <p className="text-purple-400 font-black text-[10px] mb-4 uppercase tracking-[0.3em] flex items-center gap-1 opacity-80">Online Multiplayer 🌐</p>
-                    <div className="text-[10px] text-gray-600 uppercase font-black tracking-[0.3em] pointer-events-none opacity-60">
-                      {isMobile ? "Joystick + Botão de Raio" : "Mouse para guiar | Clique para Turbo"}
-                    </div>
+              ) : (
+                <>
+                  {/* Branding — desktop only */}
+                  <div className="hidden md:flex flex-col items-center text-center max-w-xs shrink-0">
+                    <Logo className="w-28 h-28 mb-3 drop-shadow-[0_0_20px_rgba(168,85,247,0.4)]" />
+                    <h1 className="text-5xl font-black tracking-tighter mb-1" style={{ background: 'linear-gradient(to right, #4ade80, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>ocean.io</h1>
+                    <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-2 italic">Sobreviva no Abismo</p>
+                    <p className="text-purple-400 font-black text-xs mb-4 uppercase tracking-widest opacity-80">Online Multiplayer 🌐</p>
+                    <p className="text-[10px] text-gray-600 uppercase font-black tracking-widest opacity-60">
+                      {isMobile ? "Joystick + Botão ⚡" : "Mouse para guiar | Click = Turbo"}
+                    </p>
                   </div>
 
                   {/* Coluna de Controles */}
-                  <div className="flex flex-col items-center w-full max-w-sm md:w-[400px] gap-3">
+                  <div className="flex flex-col items-center w-full max-w-sm gap-4">
                     {connectionError && (
-                      <div className="bg-red-900/30 border border-red-500/40 px-4 py-2 rounded-xl text-red-400 text-sm text-center w-full animate-shake">{connectionError}</div>
+                      <div className="bg-red-900/30 border border-red-500/40 px-4 py-2 rounded-xl text-red-400 text-sm text-center w-full">{connectionError}</div>
                     )}
 
-                    {/* Título visível apenas em mobile */}
-                    <h1 className="md:hidden text-3xl font-black tracking-tighter" style={{ background: 'linear-gradient(to right, #4ade80, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>ocean.io</h1>
-
-                    {/* Seletor de Skin compacto */}
-                    <div className="flex items-center gap-3 w-full bg-black/30 border border-white/10 rounded-2xl p-3 backdrop-blur-sm">
-                      <button onClick={() => setSelectedSkinIdx(i => (i === 0 ? SKINS.length - 1 : i - 1))}
-                        className="text-2xl text-gray-400 hover:text-white transition-all hover:scale-125 active:scale-90 px-1 flex-shrink-0">‹</button>
-
-                      {/* Preview da Skin */}
-                      <div className="w-16 h-16 flex-shrink-0 rounded-full flex items-center justify-center relative border-2"
-                        style={{ background: SKINS[selectedSkinIdx].type.startsWith('dragon') ? 'radial-gradient(circle, #333 0%, #000 100%)' : (SKINS[selectedSkinIdx].type === 'chain' ? 'radial-gradient(circle, #4b5563 0%, #111827 100%)' : `radial-gradient(circle, ${SKINS[selectedSkinIdx].color} 0%, rgba(0,0,0,0.95) 100%)`), borderColor: SKINS[selectedSkinIdx].color, boxShadow: `0 0 12px ${SKINS[selectedSkinIdx].color}44` }}>
-                        {SKINS[selectedSkinIdx].type === 'cyclops' && <div className="w-5 h-5 bg-[#00b4d8] rounded-full flex items-center justify-center"><div className="w-2.5 h-2.5 bg-black rounded-full ml-0.5"/></div>}
-                        {SKINS[selectedSkinIdx].type.startsWith('dragon') && <div className="text-lg" style={{color: SKINS[selectedSkinIdx].color}}>🐉</div>}
-                        {SKINS[selectedSkinIdx].type.startsWith('skeleton') && <div className="text-lg">💀</div>}
-                        {SKINS[selectedSkinIdx].type === 'lula' && <div className="text-lg">🦑</div>}
-                        {SKINS[selectedSkinIdx].type === 'chain' && <div className="text-lg">⛓️</div>}
-                        {SKINS[selectedSkinIdx].type === 'seahorse' && <div className="text-lg">🦄</div>}
+                    {/* === Skin Selector === */}
+                    <div className="w-full bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+                      {/* Preview grande da skin */}
+                      <div className="flex items-center justify-center py-6 px-4 relative"
+                        style={{ background: `radial-gradient(ellipse at center, ${SKINS[selectedSkinIdx].color}15 0%, transparent 70%)` }}>
+                        <div className="w-24 h-24 rounded-full flex items-center justify-center border-4 shadow-2xl transition-all duration-300"
+                          style={{ background: SKINS[selectedSkinIdx].type.startsWith('dragon') ? 'radial-gradient(circle, #333 0%, #000 100%)' : (SKINS[selectedSkinIdx].type === 'chain' ? 'radial-gradient(circle, #4b5563 0%, #111827 100%)' : `radial-gradient(circle, ${SKINS[selectedSkinIdx].color} 0%, rgba(0,0,0,0.95) 100%)`), borderColor: SKINS[selectedSkinIdx].color, boxShadow: `0 0 30px ${SKINS[selectedSkinIdx].color}55` }}>
+                          {SKINS[selectedSkinIdx].type === 'cyclops' && <div className="w-8 h-8 bg-[#00b4d8] rounded-full flex items-center justify-center shadow-inner"><div className="w-4 h-4 bg-black rounded-full ml-1"/></div>}
+                          {SKINS[selectedSkinIdx].type.startsWith('dragon') && <span className="text-4xl">🐉</span>}
+                          {SKINS[selectedSkinIdx].type.startsWith('skeleton') && <span className="text-4xl">💀</span>}
+                          {SKINS[selectedSkinIdx].type === 'lula' && <span className="text-4xl">🦑</span>}
+                          {SKINS[selectedSkinIdx].type === 'chain' && <span className="text-4xl">⛓️</span>}
+                          {SKINS[selectedSkinIdx].type === 'seahorse' && <span className="text-4xl">🦄</span>}
+                        </div>
                       </div>
-
-                      {/* Nome e raridade */}
-                      <div className="flex flex-col flex-1 min-w-0">
-                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest self-start mb-1 ${RARITY_STYLE[SKINS[selectedSkinIdx].rarity]}`}>
-                          {SKINS[selectedSkinIdx].rarity}
-                        </span>
-                        <span className="font-black text-sm uppercase truncate" style={{ color: SKINS[selectedSkinIdx].color }}>
-                          {SKINS[selectedSkinIdx].name}
-                        </span>
+                      {/* Nome + raridade + setas — tudo numa barra */}
+                      <div className="flex items-center justify-between px-3 py-2 bg-black/30 border-t border-white/5">
+                        <button onClick={() => setSelectedSkinIdx(i => (i === 0 ? SKINS.length - 1 : i - 1))}
+                          className="w-9 h-9 rounded-full bg-white/8 hover:bg-white/15 active:scale-90 transition-all flex items-center justify-center text-white text-xl font-bold border border-white/10"
+                          style={{background:'rgba(255,255,255,0.06)'}}>‹</button>
+                        <div className="flex flex-col items-center gap-0.5">
+                          <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${RARITY_STYLE[SKINS[selectedSkinIdx].rarity]}`}>
+                            {SKINS[selectedSkinIdx].rarity}
+                          </span>
+                          <span className="font-black text-sm uppercase" style={{ color: SKINS[selectedSkinIdx].color }}>
+                            {SKINS[selectedSkinIdx].name}
+                          </span>
+                        </div>
+                        <button onClick={() => setSelectedSkinIdx(i => (i === SKINS.length - 1 ? 0 : i + 1))}
+                          className="w-9 h-9 rounded-full bg-white/8 hover:bg-white/15 active:scale-90 transition-all flex items-center justify-center text-white text-xl font-bold border border-white/10"
+                          style={{background:'rgba(255,255,255,0.06)'}}>›</button>
                       </div>
-
-                      <button onClick={() => setSelectedSkinIdx(i => (i === SKINS.length - 1 ? 0 : i + 1))}
-                        className="text-2xl text-gray-400 hover:text-white transition-all hover:scale-125 active:scale-90 px-1 flex-shrink-0">›</button>
                     </div>
 
                     {/* Nickname */}
                     <input type="text" maxLength={16} value={playerName} onChange={e => setPlayerName(e.target.value)}
                       placeholder="Seu Nickname" onKeyDown={e => e.key === 'Enter' && handleJoin()}
-                      className="bg-white/5 text-white placeholder-gray-600 px-4 py-3 rounded-xl text-sm w-full text-center border-2 border-white/10 focus:border-purple-500/50 outline-none transition-all focus:bg-white/10" />
+                      className="bg-white/5 text-white placeholder-gray-600 px-4 py-3 rounded-xl text-sm w-full text-center border-2 border-white/10 focus:border-purple-500/50 outline-none transition-all focus:bg-white/8" />
 
-                    {/* Jogar */}
+                    {/* Entrar */}
                     <button onClick={handleJoin} disabled={uiState === 'CONNECTING'}
-                      className="bg-[#4ade80] hover:bg-[#22c55e] disabled:bg-gray-600 text-black font-black py-4 px-10 rounded-full text-xl shadow-[0_5px_0_#166534] active:translate-y-[4px] active:shadow-none transition-all uppercase tracking-tighter disabled:opacity-50 w-full">
+                      className="bg-[#4ade80] hover:bg-[#22c55e] disabled:bg-gray-600 text-black font-black py-4 px-10 rounded-full text-xl shadow-[0_5px_0_#166534] active:translate-y-1 active:shadow-none transition-all uppercase tracking-tighter disabled:opacity-50 w-full">
                       {uiState === 'CONNECTING' ? 'Conectando...' : 'Entrar na Arena'}
                     </button>
 
-                    {/* Extras: Recorde + Tela Cheia */}
-                    <div className="flex items-center justify-between w-full px-1">
-                      {multiHighScore > 0 && (
-                        <div className="flex flex-col items-start opacity-60">
+                    {/* Rodapé: Recorde + Tela Cheia */}
+                    <div className="flex items-center justify-between w-full">
+                      {multiHighScore > 0 ? (
+                        <div className="opacity-60">
                           <p className="text-[9px] uppercase font-bold text-gray-500 tracking-widest">Recorde</p>
                           <p className="text-base font-black text-white">{multiHighScore}</p>
                         </div>
-                      )}
+                      ) : <div />}
                       <button onClick={() => { if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen(); }}
-                        className="ml-auto bg-blue-600/60 hover:bg-blue-500/80 text-white/80 font-bold py-1.5 px-4 rounded-full text-[10px] uppercase tracking-widest border border-white/10 transition-all">
+                        className="bg-blue-600/50 hover:bg-blue-500/70 text-white/70 font-bold py-1.5 px-3 rounded-full text-[10px] uppercase tracking-widest border border-white/10 transition-all">
                         🔲 Tela Cheia
                       </button>
                     </div>
-
-                    {onBack && (
-                      <button onClick={onBack} className="text-gray-500 hover:text-gray-300 text-[10px] transition-all font-medium opacity-50 hover:opacity-100">
-                        ← Trocar Modo
-                      </button>
-                    )}
                   </div>
-                </div>
-              </>
-            )}
+                </>
+              )}
+            </div>
           </div>
-         </div>
         </div>
       )}
+
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes fadeInUp { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
         @keyframes pop-in { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
