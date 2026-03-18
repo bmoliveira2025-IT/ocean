@@ -910,7 +910,7 @@ class Snake {
 // ==========================================
 // GAME ENGINE CORE
 // ==========================================
-export default function OceanApp() {
+export default function OceanApp({ onBack }) {
   const canvasRef = useRef(null);
   const engineRef = useRef(null);
   const joystick = useRef({ active: false, x: 0, y: 0, baseX: 0, baseY: 0 });
@@ -1438,6 +1438,12 @@ export default function OceanApp() {
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-gray-900 select-none touch-none font-sans">
+      {/* Back to mode selector — visible on start screen */}
+      {onBack && gameState === 'START' && (
+        <button onClick={onBack} className="absolute top-4 left-4 z-50 flex items-center gap-2 bg-black/40 hover:bg-black/60 text-white/70 hover:text-white text-xs px-4 py-2 rounded-full border border-white/15 hover:border-white/30 backdrop-blur-sm transition-all">
+          ← Trocar Modo
+        </button>
+      )}
       <canvas ref={canvasRef} className="block w-full h-full cursor-crosshair touch-none" onMouseMove={handleInput} onTouchMove={handleInput} onMouseDown={handleDown} onMouseUp={handleUp} />
       {gameState === 'PLAYING' && (
         <>
@@ -1690,6 +1696,11 @@ export default function OceanApp() {
                         <p className="text-[7px] md:text-[9px] uppercase font-bold text-gray-500 tracking-[0.2em]">Recorde Pessoal</p>
                         <p className="text-xs md:text-lg font-black text-white">{highScore}</p>
                       </div>
+                    )}
+                    {onBack && (
+                      <button onClick={onBack} className="text-gray-500 hover:text-gray-300 text-[10px] md:text-xs transition-all mt-1">
+                        ← Trocar Modo
+                      </button>
                     )}
                   </div>
                 </div>

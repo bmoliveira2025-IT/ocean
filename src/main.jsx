@@ -7,7 +7,7 @@ import './index.css';
 function Root() {
   const [mode, setMode] = useState('MENU'); // 'MENU' | 'SOLO' | 'MULTI'
 
-  if (mode === 'SOLO') return <App />;
+  if (mode === 'SOLO') return <App onBack={() => setMode('MENU')} />;
   if (mode === 'MULTI') return <MultiplayerApp onBack={() => setMode('MENU')} />;
 
   return (

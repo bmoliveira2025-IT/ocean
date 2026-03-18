@@ -258,11 +258,13 @@ class GameRoom {
       snake.update(dt, input);
     });
 
-    // Collect orbs
+    // Collect orbs — gather deletions first, then apply
+    const deletedOrbIds = [];
     allSnakes.forEach(snake => {
       if (snake.dead) return;
       const r = snake.size * 1.5;
       this.orbs.forEach((orb, orbId) => {
+        if (deletedOrbIds.includes(orbId)) return; // already collected this tick
         if (distSq(snake.x, snake.y, orb.x, orb.y) < r * r) {
           snake.score += orb.value;
           if (orb.isPowerup) {
@@ -271,19 +273,27 @@ class GameRoom {
             else if (orb.type === 3) snake.sessionCoins++;
             this.events.push({ type: 'powerup', playerId: snake.id, orbType: orb.type });
           }
-          this.orbs.delete(orbId);
-          // Respawn a random orb
-          setTimeout(() => {
-            if (this.orbs.size < 1500) {
-              const newOrb = new Orb();
-              this.orbs.set(newOrb.id, newOrb);
-              this.io.to(this.id).emit('orbSpawn', [{ id: newOrb.id, x: Math.round(newOrb.x), y: Math.round(newOrb.y), color: newOrb.color, size: newOrb.size, isPowerup: false }]);
-            }
-          }, 200);
-          this.events.push({ type: 'orbCollected', orbId });
+          deletedOrbIds.push(orbId);
         }
       });
     });
+
+    // Apply deletions and respawn
+    deletedOrbIds.forEach(orbId => {
+      this.orbs.delete(orbId);
+      setTimeout(() => {
+        if (this.orbs.size < 1500) {
+          const newOrb = new Orb();
+          this.orbs.set(newOrb.id, newOrb);
+          this.io.to(this.id).emit('orbSpawn', [{ id: newOrb.id, x: Math.round(newOrb.x), y: Math.round(newOrb.y), color: newOrb.color, size: newOrb.size, isPowerup: false }]);
+        }
+      }, 200);
+    });
+
+    // Emit direct orbDelete event so clients remove them immediately
+    if (deletedOrbIds.length > 0) {
+      this.io.to(this.id).emit('orbDelete', deletedOrbIds);
+    }
 
     // Collision detection (head vs body)
     allSnakes.forEach(attacker => {
