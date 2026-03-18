@@ -1054,14 +1054,26 @@ export default function OceanApp() {
     e.stopPropagation(); if (!joystick.current.active) return;
     const touch = e.targetTouches[0]; if (!touch) return;
     const dx = touch.clientX - joystick.current.baseX; const dy = touch.clientY - joystick.current.baseY;
-    const dist = Math.sqrt(dx * dx + dy * dy); const maxDist = 40;
-    const nx = dist > maxDist ? (dx / dist) * maxDist : dx;
-    const ny = dist > maxDist ? (dy / dist) * maxDist : dy;
+    const dist = Math.sqrt(dx * dx + dy * dy); 
+    const maxDist = 50; // Aumentado para melhor alcance
+    const deadzone = 5;
+    
+    let nx = 0, ny = 0;
+    if (dist > deadzone) {
+      // Curva de sensibilidade: mais precisão no centro, resposta rápida nas bordas
+      const power = 1.2;
+      const normalizedDist = Math.min(dist, maxDist) / maxDist;
+      const curvedDist = Math.pow(normalizedDist, power) * maxDist;
+      nx = (dx / dist) * curvedDist;
+      ny = (dy / dist) * curvedDist;
+    }
+
     joystick.current.x = nx; joystick.current.y = ny;
     const knob = document.getElementById('joystick-knob');
     if (knob) knob.style.transform = `translate(calc(-50% + ${nx}px), calc(-50% + ${ny}px))`;
     const canvas = canvasRef.current;
     if (canvas) {
+       // Mantemos o mouseX/Y para compatibilidade com o motor
        state.current.mouseX = (canvas.width / 2) + nx * 10;
        state.current.mouseY = (canvas.height / 2) + ny * 10;
     }
@@ -1339,8 +1351,16 @@ export default function OceanApp() {
               <div className="absolute bottom-8 left-8 w-32 h-32 bg-white/10 rounded-full border-2 border-white/20 backdrop-blur-md z-50 pointer-events-auto shadow-[0_0_20px_rgba(255,255,255,0.1)] touch-none" onTouchStart={handleJoystickStart} onTouchMove={handleJoystickMove} onTouchEnd={handleJoystickEnd} onContextMenu={(e) => e.preventDefault()}>
                 <div className="absolute top-1/2 left-1/2 w-14 h-14 bg-white/50 rounded-full shadow-lg transform -translate-x-1/2 -translate-y-1/2 border border-white/80 transition-transform duration-75" id="joystick-knob"></div>
               </div>
-              <div className="absolute bottom-10 right-10 w-[80px] h-[80px] bg-yellow-500/30 rounded-full border-2 border-yellow-400 backdrop-blur-md flex items-center justify-center z-50 shadow-[0_0_20px_rgba(250,204,21,0.4)] pointer-events-auto active:bg-yellow-500/60 active:scale-95 transition-all touch-none" onTouchStart={(e) => { e.stopPropagation(); if (state.current.player) state.current.player.isBoosting = true; }} onTouchEnd={(e) => { e.stopPropagation(); if (state.current.player) state.current.player.isBoosting = false; }} onContextMenu={(e) => e.preventDefault()}>
-                <span className="text-4xl translate-x-[2px] translate-y-[2px]">⚡</span>
+              {/* Área de toque expandida para o botão de Boost */}
+              <div 
+                className="absolute bottom-4 right-4 w-[120px] h-[120px] flex items-center justify-center z-50 pointer-events-auto touch-none"
+                onTouchStart={(e) => { e.stopPropagation(); if (state.current.player) state.current.player.isBoosting = true; }} 
+                onTouchEnd={(e) => { e.stopPropagation(); if (state.current.player) state.current.player.isBoosting = false; }}
+                onContextMenu={(e) => e.preventDefault()}
+              >
+                <div className="w-[80px] h-[80px] bg-yellow-500/30 rounded-full border-2 border-yellow-400 backdrop-blur-md flex items-center justify-center shadow-[0_0_20px_rgba(250,204,21,0.4)] active:bg-yellow-500/60 active:scale-95 transition-all pointer-events-none">
+                  <span className="text-4xl translate-x-[2px] translate-y-[2px]">⚡</span>
+                </div>
               </div>
             </>
           )}
