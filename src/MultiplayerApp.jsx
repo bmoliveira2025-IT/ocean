@@ -66,6 +66,8 @@ export default function MultiplayerApp({ onBack }) {
   const myIdRef = useRef(null);
   const settingsRef = useRef(qualityManager.getSettings());
   const isMobileRef = useRef(false);
+  const predictedMeRef = useRef(null);   // client-side prediction state
+  const lastRenderRef = useRef(0);        // for per-frame dt
 
   const [quality, setQuality] = useState(qualityManager.currentQuality);
   const [uiState, setUiState] = useState('LOBBY');
@@ -133,6 +135,24 @@ export default function MultiplayerApp({ onBack }) {
 
       const me = snakes.find(s => s.id === myIdRef.current);
       if (me) {
+        // Reconcile client prediction with authoritative server position
+        if (predictedMeRef.current) {
+          const p = predictedMeRef.current;
+          const dx = me.x - p.x, dy = me.y - p.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist > 250) {
+            // Too far off — snap to server
+            p.x = me.x; p.y = me.y; p.angle = me.angle;
+          } else if (dist > 3) {
+            // Small drift — gently blend
+            p.x += dx * 0.15; p.y += dy * 0.15;
+          }
+          // Body and size always from server (authoritative)
+          p.body = me.body; p.size = me.size; p.color = me.color;
+          p.score = me.score;
+        } else {
+          predictedMeRef.current = { ...me, body: [...(me.body || [])] };
+        }
         setScore(Math.floor(me.score));
         // FIX 2: Leaderboard - update top 10
         const sorted = [...snakes].sort((a, b) => b.score - a.score);
@@ -202,12 +222,36 @@ export default function MultiplayerApp({ onBack }) {
       const ctx = canvas.getContext('2d');
       const settings = settingsRef.current;
       const { snakes, orbs } = worldRef.current;
-      const me = snakes.find(s => s.id === myIdRef.current);
+
+      // --- Client-side prediction: advance local snake by frame dt ---
+      const now = performance.now();
+      const dt = Math.min((now - (lastRenderRef.current || now)) / 1000, 0.05);
+      lastRenderRef.current = now;
+      const pred = predictedMeRef.current;
+      if (pred) {
+        const input = inputRef.current;
+        let diff = input.angle - pred.angle;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        pred.angle += diff * Math.min(dt * 4.0, 1); // match server TURN_SPEED
+        const speed = 140 * (input.isBoosting ? 1.8 : 1); // match server speeds
+        pred.x += Math.cos(pred.angle) * speed * dt;
+        pred.y += Math.sin(pred.angle) * speed * dt;
+        pred.x = Math.max(0, Math.min(pred.x, WORLD_SIZE));
+        pred.y = Math.max(0, Math.min(pred.y, WORLD_SIZE));
+        pred.isBoosting = input.isBoosting;
+      }
+
+      // Use predicted position for local player; server state for others
+      const me = pred || snakes.find(s => s.id === myIdRef.current);
+      const renderSnakes = pred
+        ? snakes.map(s => s.id === myIdRef.current ? pred : s)
+        : snakes;
 
       if (me) {
         cameraRef.current.x = lerp(cameraRef.current.x, me.x, 0.1);
         cameraRef.current.y = lerp(cameraRef.current.y, me.y, 0.1);
-        cameraRef.current.zoom = lerp(cameraRef.current.zoom, Math.max(0.3, 1.1 * Math.pow(500 / Math.max(500, me.score), 0.35)), 0.05);
+        cameraRef.current.zoom = lerp(cameraRef.current.zoom, Math.max(0.3, 1.1 * Math.pow(500 / Math.max(500, me.score || 500), 0.35)), 0.05);
       }
 
       const { x: camX, y: camY, zoom } = cameraRef.current;
@@ -238,7 +282,7 @@ export default function MultiplayerApp({ onBack }) {
       });
       const mobile = isMobileRef.current;
       const margin = 200;
-      [...snakes]
+      [...renderSnakes]
         .filter(s => Math.abs(s.x - camX) < viewW / 2 + margin && Math.abs(s.y - camY) < viewH / 2 + margin)
         .sort((a, b) => a.size - b.size)
         .forEach(snake => {
