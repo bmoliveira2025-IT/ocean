@@ -935,6 +935,10 @@ export default function OceanApp() {
   });
   const [showSettings, setShowSettings] = useState(false);
   const [isPortrait, setIsPortrait] = useState(false);
+  const [killFeed, setKillFeed] = useState([]);
+  const [killCount, setKillCount] = useState(0);
+  const [killStreak, setKillStreak] = useState(null);
+  const [powerupBanner, setPowerupBanner] = useState(null);
 
   const [coins, setCoins] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -1057,7 +1061,7 @@ export default function OceanApp() {
       }
     }
 
-    setGameState('PLAYING'); setScore(500); setPowerups({ shield: 0, speed: 0, magnet: 0 });
+    setGameState('PLAYING'); setScore(500); setPowerups({ shield: 0, speed: 0, magnet: 0 }); setKillCount(0); setKillFeed([]); setKillStreak(null);
     s.audio.setBGM(bgmEnabled);
     s.audio.setSFX(sfxEnabled);
     s.lastTime = performance.now();
@@ -1160,6 +1164,15 @@ export default function OceanApp() {
         if (snk) snake.aiTarget = snk;
       }
       snake.update(dt, WORLD_SIZE, snake.isPlayer ? pTarget : null, s.spatialHash);
+      // Boost trail particles
+      if (snake.isBoosting && settings.particles) {
+        snake.boostTrailTimer = (snake.boostTrailTimer || 0) + dt;
+        if (snake.boostTrailTimer > 0.04) {
+          snake.boostTrailTimer = 0;
+          const tail = snake.body[Math.min(3, snake.body.length - 1)];
+          if (tail) state.current.particles.push(new Particle(tail.x, tail.y, snake.color, 0.4));
+        }
+      }
       if (snake.isBoosting && snake.score > 150) {
         snake.boostDropTimer = (snake.boostDropTimer || 0) + dt;
         if (snake.boostDropTimer > 0.15) { 
@@ -1209,6 +1222,14 @@ export default function OceanApp() {
               if (item.type === 3) { snake.sessionCoins += 1; if (snake.isPlayer) s.audio.play('coin', 0.6); }
               else { if (snake.isPlayer) s.audio.play('powerup'); }
             } else { snake.score += item.value; if (snake.isPlayer && Math.random() < 0.3) s.audio.play('pop', 0.15); }
+            // Power-up pickup banner
+            if (item.isPowerup && snake.isPlayer && item.type !== 3) {
+              const names = ['🛡️ Escudo!', '⚡ Velocidade!', '🧲 Ímã!'];
+              const colors = ['#00b4d8', '#f4d03f', '#9b59b6'];
+              const banner = { text: names[item.type], color: colors[item.type] };
+              setPowerupBanner(banner);
+              setTimeout(() => setPowerupBanner(null), 2500);
+            }
           }
         }
       });
@@ -1235,6 +1256,27 @@ export default function OceanApp() {
                   const fl = Math.floor(attacker.score / 10);
                   if (fl > prev) { localStorage.setItem('ocean_highscore', fl.toString()); return fl; }
                   return prev;
+                });
+              } else if (defender.isPlayer) {
+                // Player killed a bot! Update kill feed
+                const newKill = { id: Date.now(), killer: defender.name, victim: attacker.name, color: attacker.color };
+                setKillFeed(prev => [newKill, ...prev].slice(0, 5));
+                setTimeout(() => setKillFeed(prev => prev.filter(k => k.id !== newKill.id)), 4000);
+                setKillCount(prev => {
+                  const next = prev + 1;
+                  return next;
+                });
+                setKillStreak(prev => {
+                  const next = (prev || 0) + 1;
+                  let badge = null;
+                  if (next === 2) { badge = { text: 'DUPLA MORTE! 💀', color: '#f97316' }; s.audio.play('powerup'); }
+                  else if (next === 3) { badge = { text: 'TRIPLA! ⚡', color: '#ef4444' }; s.audio.play('king', 0.5); }
+                  else if (next >= 5) { badge = { text: 'EXTERMINADOR! ☠️', color: '#a855f7' }; s.audio.play('king', 0.8); }
+                  if (badge) {
+                    setKillStreak(badge);
+                    setTimeout(() => setKillStreak(null), 3000);
+                  }
+                  return next;
                 });
               }
               attacker.body.forEach((seg, idx) => { if (idx % 2 === 0) spawnOrb(seg.x + randomRange(-10, 10), seg.y + randomRange(-10, 10), Math.max(10, attacker.score / attacker.body.length * 2)); });
@@ -1378,6 +1420,7 @@ export default function OceanApp() {
             <p>Seu comprimento: <b className="text-white text-base">{Math.floor(score / 10)}</b></p>
             <p className="text-white/60 text-xs mt-1">Classificação: <span className="text-yellow-400 font-bold">{playerRank}</span> de {totalPlayers}</p>
             <p className="text-yellow-400 font-bold text-sm mt-1 flex items-center gap-1">🪙 {state.current.player?.sessionCoins || 0}</p>
+            {killCount > 0 && <p className="text-red-400 font-bold text-xs mt-1">💥 Abates: {killCount}</p>}
           </div>
           <div className="absolute top-4 right-6 text-white text-sm pointer-events-none text-right z-10 font-medium bg-black/20 p-3 rounded-xl backdrop-blur-sm border border-white/10 hidden sm:block">
             <h3 className="font-bold text-gray-300 text-lg mb-1 tracking-wide">Líderes</h3>
@@ -1439,6 +1482,37 @@ export default function OceanApp() {
           }} className={`absolute top-4 right-16 sm:top-auto ${isMobile ? 'sm:bottom-[120px]' : 'sm:bottom-4'} bg-transparent hover:bg-white/10 text-white w-12 h-12 flex items-center justify-center rounded-full transition-all text-xl cursor-pointer z-50 opacity-60 hover:opacity-100 drop-shadow-lg`} title={sfxEnabled ? "Desativar Efeitos" : "Ativar Efeitos"}>
             {sfxEnabled ? '🔊' : '🔇'}
           </button>
+
+          {/* Kill Feed */}
+          {killFeed.length > 0 && (
+            <div className="absolute bottom-4 left-4 flex flex-col-reverse gap-1 pointer-events-none z-20">
+              {killFeed.map(kill => (
+                <div key={kill.id} className="flex items-center gap-2 bg-black/50 border border-white/10 px-3 py-1.5 rounded-full backdrop-blur-sm animate-fade-in-up text-xs">
+                  <span className="text-white font-bold truncate max-w-[80px]">{kill.killer}</span>
+                  <span className="text-red-400">💀</span>
+                  <span style={{ color: kill.color }} className="font-bold truncate max-w-[80px]">{kill.victim}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Kill Streak Banner */}
+          {killStreak && typeof killStreak === 'object' && killStreak.text && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+              <div className="px-8 py-4 rounded-2xl text-2xl font-black uppercase tracking-widest animate-fade-in-up text-white drop-shadow-[0_0_20px_rgba(0,0,0,0.8)]" style={{ background: `${killStreak.color}33`, border: `2px solid ${killStreak.color}`, color: killStreak.color, textShadow: `0 0 20px ${killStreak.color}` }}>
+                {killStreak.text}
+              </div>
+            </div>
+          )}
+
+          {/* Power-up Banner */}
+          {powerupBanner && (
+            <div className="absolute top-24 left-1/2 -translate-x-1/2 pointer-events-none z-30">
+              <div className="px-6 py-2 rounded-full text-lg font-black animate-fade-in-up" style={{ background: `${powerupBanner.color}22`, border: `2px solid ${powerupBanner.color}`, color: powerupBanner.color, textShadow: `0 0 10px ${powerupBanner.color}` }}>
+                {powerupBanner.text}
+              </div>
+            </div>
+          )}
         </>
       )}
 
