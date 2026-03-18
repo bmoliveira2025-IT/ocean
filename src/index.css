@@ -1,18 +1,14 @@
-/* src/index.css */
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { 
-  background: #020d1a; 
-  overflow: hidden; 
-  font-family: 'Segoe UI', system-ui, sans-serif; 
-  width: 100vw;
-  height: 100vh;
-  cursor: default !important;
+@import "tailwindcss";
+
+:root {
+  background-color: #0f172a;
 }
 
-#root {
-  width: 100%;
-  height: 100%;
-  position: relative;
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  background-color: #0f172a;
 }
-
-/* Cleaned up for global.css */
