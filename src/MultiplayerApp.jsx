@@ -629,92 +629,131 @@ export default function MultiplayerApp({ onBack }) {
 
       {uiState === 'PLAYING' && (
         <>
-          {/* Score HUD */}
-          <div className="absolute top-4 left-4 bg-black/30 p-3 rounded-xl backdrop-blur-sm border border-white/10 text-white/80 text-sm pointer-events-none z-10">
-            <p>Comprimento: <b className="text-white text-base">{Math.floor(score / 10)}</b></p>
-            <p className="text-xs text-white/60 mt-1">Posição: <span className="text-yellow-400 font-bold">#{rank}</span></p>
-            {killCount > 0 && <p className="text-red-400 text-xs mt-1">💀 Abates: {killCount}</p>}
+          {/* ── HUD Superior Esquerdo ── */}
+          <div className="absolute top-3 left-3 z-10 pointer-events-none flex flex-col gap-1.5">
+            {/* Score Principal */}
+            <div className="bg-black/50 backdrop-blur-sm border border-white/10 px-3 py-2 rounded-2xl flex items-center gap-3">
+              <div className="flex flex-col">
+                <span className="text-white/40 text-[9px] uppercase tracking-widest font-bold">Comprimento</span>
+                <span className="text-white font-black text-lg leading-none">{Math.floor(score / 10)}</span>
+              </div>
+              <div className="w-px h-8 bg-white/10" />
+              <div className="flex flex-col items-center">
+                <span className="text-white/40 text-[9px] uppercase tracking-widest font-bold">Posição</span>
+                <span className="text-yellow-400 font-black text-lg leading-none">#{rank}</span>
+              </div>
+              {killCount > 0 && (
+                <>
+                  <div className="w-px h-8 bg-white/10" />
+                  <div className="flex flex-col items-center">
+                    <span className="text-white/40 text-[9px] uppercase tracking-widest font-bold">Abates</span>
+                    <span className="text-red-400 font-black text-lg leading-none">{killCount}</span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Ping */}
             {ping !== null && (
-              <p className={`text-xs mt-1 font-mono font-bold ${ping < 80 ? 'text-green-400' : ping < 180 ? 'text-yellow-400' : 'text-red-400'}`}>
-                Ping: {ping}ms
-              </p>
+              <div className={`self-start px-2 py-0.5 rounded-full text-[10px] font-black font-mono border ${ping < 80 ? 'text-green-400 border-green-500/30 bg-green-950/40' : ping < 180 ? 'text-yellow-400 border-yellow-500/30 bg-yellow-950/40' : 'text-red-400 border-red-500/30 bg-red-950/40'}`}>
+                ⬤ {ping}ms
+              </div>
             )}
-            <div className="flex flex-col gap-1 mt-1">
-              {activePowerups.shield > 0 && (
-                <div className="flex items-center gap-1 text-[10px] text-cyan-300">
-                  <span>🛡️</span>
-                  <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                    <div className="h-full bg-cyan-400 rounded-full" style={{ width: `${Math.min(100,(activePowerups.shield/8)*100)}%` }} />
+
+            {/* Power-ups ativos */}
+            {(activePowerups.shield > 0 || activePowerups.speed > 0) && (
+              <div className="flex flex-col gap-1">
+                {activePowerups.shield > 0 && (
+                  <div className="flex items-center gap-1.5 bg-cyan-900/40 border border-cyan-400/30 px-2 py-1 rounded-xl">
+                    <span className="text-xs">🛡️</span>
+                    <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                      <div className="h-full bg-cyan-400 rounded-full transition-all" style={{ width: `${Math.min(100,(activePowerups.shield/8)*100)}%` }} />
+                    </div>
                   </div>
-                </div>
-              )}
-              {activePowerups.speed > 0 && (
-                <div className="flex items-center gap-1 text-[10px] text-yellow-300">
-                  <span>⚡</span>
-                  <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                    <div className="h-full bg-yellow-400 rounded-full" style={{ width: `${Math.min(100,(activePowerups.speed/6)*100)}%` }} />
+                )}
+                {activePowerups.speed > 0 && (
+                  <div className="flex items-center gap-1.5 bg-yellow-900/40 border border-yellow-400/30 px-2 py-1 rounded-xl">
+                    <span className="text-xs">⚡</span>
+                    <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                      <div className="h-full bg-yellow-400 rounded-full transition-all" style={{ width: `${Math.min(100,(activePowerups.speed/6)*100)}%` }} />
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ── Botão Sair — topo direito, nunca cobre controles ── */}
+          <button onClick={handleLeave}
+            className="absolute top-3 right-3 z-50 bg-black/40 backdrop-blur-sm hover:bg-red-900/60 text-white/60 hover:text-white text-xs px-3 py-1.5 rounded-full border border-white/15 hover:border-red-500/40 transition-all">
+            ✕ Sair
+          </button>
+
+          {/* ── Leaderboard — abaixo do botão Sair ── */}
+          <div className="absolute top-12 right-3 text-white text-sm pointer-events-none z-10 hidden sm:block" style={{minWidth: 210}}>
+            <div className="bg-black/50 backdrop-blur-sm border border-white/10 rounded-2xl overflow-hidden">
+              <div className="px-3 py-1.5 bg-gradient-to-r from-purple-900/60 to-blue-900/60 border-b border-white/10 flex items-center gap-2">
+                <span className="text-yellow-400 text-base">👑</span>
+                <h3 className="font-black text-white text-xs uppercase tracking-widest">Líderes</h3>
+              </div>
+              <div className="flex flex-col px-2 py-1.5 gap-0.5">
+                {leaderboard.map(p => (
+                  <div key={p.rank} className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded-lg transition-all ${p.isMe ? 'bg-white/10 font-bold' : ''}`}>
+                    <span className={`text-[10px] font-black w-5 text-center ${p.rank === 1 ? 'text-yellow-400' : p.rank === 2 ? 'text-gray-300' : p.rank === 3 ? 'text-amber-600' : 'text-white/30'}`}>#{p.rank}</span>
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color, boxShadow: `0 0 4px ${p.color}` }} />
+                    <span className="flex-1 truncate text-left text-[11px]" style={{ color: p.isMe ? 'white' : p.color }}>{p.name}</span>
+                    <span className="text-white/50 text-[10px] font-mono">{p.score.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Leaderboard top 10 */}
-          <div className="absolute top-4 right-16 text-white text-sm pointer-events-none text-right z-10 bg-black/20 p-3 rounded-xl backdrop-blur-sm border border-white/10 hidden sm:block">
-            <h3 className="font-bold text-gray-300 text-base mb-1 tracking-wide">Líderes</h3>
-            <div className="flex flex-col gap-[2px]">
-              {leaderboard.map(p => (
-                <div key={p.rank} className={`flex justify-end items-center gap-2 ${p.isMe ? 'font-bold bg-white/10 px-2 rounded' : ''}`}>
-                  <span className="text-gray-400 w-4 text-xs">#{p.rank}</span>
-                  <span className="w-24 truncate text-left text-xs" style={{ color: p.color }}>{p.name}</span>
-                  <span className="text-white/70 text-xs w-12 text-right">{p.score.toLocaleString()}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Kill feed */}
+          {/* ── Kill Feed — centro-topo ── */}
           {killFeed.length > 0 && (
-            <div className="absolute bottom-4 left-4 flex flex-col-reverse gap-1 pointer-events-none z-20">
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 flex flex-col gap-1 pointer-events-none z-30">
               {killFeed.map(k => (
-                <div key={k.id} className="flex items-center gap-2 bg-black/50 border border-white/10 px-3 py-1.5 rounded-full text-xs text-white">
-                  Você eliminou <span style={{ color: k.color }} className="font-bold">{k.victim}</span> 💀
+                <div key={k.id} className="flex items-center gap-2 bg-black/70 backdrop-blur-sm border border-red-500/30 px-3 py-1.5 rounded-full text-[11px] text-white shadow-[0_0_10px_rgba(255,0,0,0.15)]" style={{animation:'fadeInUp 0.3s ease'}}>
+                  <span className="text-red-400">💀</span> Você eliminou <span className="font-bold" style={{ color: k.color }}>{k.victim}</span>
                 </div>
               ))}
             </div>
           )}
 
-          {/* Power-up banner */}
+          {/* ── Power-up Banner — centro da tela ── */}
           {powerupBanner && (
-            <div className="absolute top-20 left-1/2 -translate-x-1/2 pointer-events-none z-30">
-              <div className="px-6 py-2 rounded-full text-base font-black" style={{ background: `${powerupBanner.color}22`, border: `2px solid ${powerupBanner.color}`, color: powerupBanner.color, textShadow: `0 0 10px ${powerupBanner.color}`, animation: 'fadeInUp 0.3s ease' }}>
+            <div className="absolute top-24 left-1/2 -translate-x-1/2 pointer-events-none z-30">
+              <div className="px-6 py-2 rounded-full text-sm font-black backdrop-blur-sm" style={{ background: `${powerupBanner.color}25`, border: `1.5px solid ${powerupBanner.color}80`, color: powerupBanner.color, textShadow: `0 0 12px ${powerupBanner.color}`, animation: 'fadeInUp 0.3s ease' }}>
                 {powerupBanner.text}
               </div>
             </div>
           )}
 
-          {/* Mobile joystick */}
+          {/* ── Controles Mobile ── */}
           {isMobile && (
             <>
-              <div className="absolute bottom-8 left-8 w-32 h-32 bg-white/10 rounded-full border-2 border-white/20 backdrop-blur-md z-50 pointer-events-auto touch-none"
+              {/* Joystick — canto inferior esquerdo */}
+              <div className="absolute bottom-8 left-8 w-28 h-28 z-50 pointer-events-auto touch-none"
                 onTouchStart={handleJoystickStart} onTouchMove={handleJoystickMove} onTouchEnd={handleJoystickEnd}>
-                <div id="mp-joystick-knob" className="absolute top-1/2 left-1/2 w-14 h-14 bg-white/50 rounded-full transform -translate-x-1/2 -translate-y-1/2 border border-white/80" />
+                <div className="w-full h-full rounded-full bg-white/8 border-2 border-white/20 backdrop-blur-md flex items-center justify-center" style={{background:'rgba(255,255,255,0.06)'}}>
+                  <div id="mp-joystick-knob" className="absolute top-1/2 left-1/2 w-12 h-12 bg-white/30 rounded-full border border-white/60 backdrop-blur-md" style={{transform:'translate(-50%,-50%)'}} />
+                </div>
               </div>
-              <div className="absolute bottom-4 right-4 w-[100px] h-[100px] flex items-center justify-center z-50 pointer-events-auto touch-none"
+
+              {/* Boost — canto inferior direito, acima do nível do HUD */}
+              <div className="absolute bottom-8 right-8 w-24 h-24 z-50 pointer-events-auto touch-none flex flex-col items-center gap-1"
                 onTouchStart={(e) => { e.stopPropagation(); inputRef.current.isBoosting = true; }}
                 onTouchEnd={(e) => { e.stopPropagation(); inputRef.current.isBoosting = false; }}>
-                <div className="w-[70px] h-[70px] bg-yellow-500/30 rounded-full border-2 border-yellow-400 backdrop-blur-md flex items-center justify-center pointer-events-none">
-                  <span className="text-3xl">⚡</span>
+                <div className="w-20 h-20 bg-yellow-500/20 rounded-full border-2 border-yellow-400/70 backdrop-blur-md flex items-center justify-center shadow-[0_0_20px_rgba(250,204,21,0.2)] pointer-events-none">
+                  <span className="text-4xl">⚡</span>
                 </div>
+                <span className="text-yellow-300/60 text-[9px] font-bold uppercase tracking-widest pointer-events-none">Turbo</span>
               </div>
             </>
           )}
-
-          <button onClick={handleLeave} className="absolute sm:bottom-4 sm:top-auto top-4 right-4 bg-transparent text-white/60 hover:text-white text-xs px-3 py-1.5 rounded-full border border-white/20 hover:border-white/40 transition-all z-50">
-            Sair
-          </button>
         </>
       )}
+
 
       {/* Lobby / Death screen */}
       {(uiState === 'LOBBY' || uiState === 'DIED' || uiState === 'CONNECTING') && (
