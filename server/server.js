@@ -16,7 +16,7 @@ app.get('/health', (req, res) => {
 });
 
 // Qualquer outra página que não seja um arquivo, devolve o React Router (index.html)
-app.get('*', (req, res) => {
+app.use((req, res) => {
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
