@@ -33,7 +33,8 @@ const lerp = (a, b, t) => a + (b - a) * t;
 // ==========================================
 function drawSnake(ctx, snake, settings, t = 0) {
   if (!snake || !snake.body || snake.body.length === 0) return;
-  const { color, x, y, angle, size, isBoosting, shieldTimer, speedTimer, skinType = 'cyclops', name, isKing } = snake;
+  const { color, x, y, angle, size, isBoosting, shieldTimer, speedTimer, name, isKing } = snake;
+  const skinType = (typeof snake.skinType === 'string') ? snake.skinType : 'cyclops';
   const boosting = isBoosting || (speedTimer > 0);
 
   ctx.save();

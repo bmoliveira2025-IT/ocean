@@ -368,7 +368,9 @@ class GameRoom {
           const name = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
           const colors = ['#00b4d8', '#e07a5f', '#52b788', '#f4d03f', '#9b59b6'];
           const color = colors[Math.floor(Math.random() * colors.length)];
-          const newBot = new Snake(`bot_${Date.now()}`, name, color, true);
+          const skinTypes = ['cyclops', 'lula', 'dragon', 'chain', 'skeleton', 'dragon_neon', 'seahorse', 'skeleton_neon'];
+          const skinType = skinTypes[Math.floor(Math.random() * skinTypes.length)];
+          const newBot = new Snake(`bot_${Date.now()}`, name, color, skinType, true);
           this.bots.push(newBot);
         }, 3000);
         return false;
