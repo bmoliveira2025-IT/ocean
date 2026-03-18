@@ -1,17 +1,23 @@
-// server.js – Entry point do servidor Socket.io
 const { createServer } = require('http');
+const express = require('express');
+const path = require('path');
 const { Server } = require('socket.io');
 const { GameRoom } = require('./GameRoom');
 
-const httpServer = createServer((req, res) => {
-  // Health check endpoint for Railway
-  if (req.url === '/health') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: 'ok', rooms: rooms.size, uptime: process.uptime() }));
-    return;
-  }
-  res.writeHead(200);
-  res.end('Ocean.io Game Server is running 🌊');
+const app = express();
+const httpServer = createServer(app);
+
+// Servir a versão de produção do jogo (Pasta dist)
+app.use(express.static(path.join(__dirname, '../dist')));
+
+// Endpoint de saúde da máquina e estatísticas
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', rooms: rooms.size || 0, uptime: process.uptime() });
+});
+
+// Qualquer outra página que não seja um arquivo, devolve o React Router (index.html)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
 const io = new Server(httpServer, {
