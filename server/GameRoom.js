@@ -170,6 +170,7 @@ class Snake {
       y: Math.round(this.y),
       angle: this.angle,
       score: Math.floor(this.score),
+      size: this.size,
       isBoosting: this.isBoosting,
       shieldTimer: this.shieldTimer,
       speedTimer: this.speedTimer,
