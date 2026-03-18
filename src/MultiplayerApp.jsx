@@ -829,11 +829,32 @@ export default function MultiplayerApp({ onBack }) {
               <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-12 w-full max-w-4xl">
 
                 {/* Branding — visível no desktop */}
-                <div className="hidden md:flex flex-col items-center text-center max-w-xs shrink-0">
-                  <Logo className="mb-2 drop-shadow-[0_0_20px_rgba(168,85,247,0.4)]" style={{width:'clamp(4rem,10vw,7rem)',height:'clamp(4rem,10vw,7rem)'}} />
-                  <h1 className="font-black tracking-tighter mb-1" style={{ fontSize:'clamp(2rem,5vw,4rem)', background: 'linear-gradient(to right, #4ade80, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>ocean.io</h1>
-                  <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-1 italic">Sobreviva no Abismo</p>
-                  <p className="text-purple-400 font-black text-[10px] uppercase tracking-widest opacity-80">Online Multiplayer 🌐</p>
+                <div className="hidden md:flex flex-col items-center text-center shrink-0" style={{maxWidth:'280px'}}>
+                  {/* Logo menor com glow */}
+                  <div className="w-20 h-20 mb-3 relative">
+                    <Logo className="w-full h-full drop-shadow-[0_0_25px_rgba(168,85,247,0.5)]" />
+                  </div>
+                  {/* Nome */}
+                  <h1 className="font-black tracking-tighter leading-none mb-1" style={{ fontSize:'clamp(2.5rem,4vw,3.5rem)', background: 'linear-gradient(to right, #4ade80, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter:'drop-shadow(0 0 20px rgba(168,85,247,0.3))' }}>ocean.io</h1>
+                  <p className="text-gray-500 text-xs font-bold uppercase tracking-[0.2em] mb-3 italic">Sobreviva no Abismo</p>
+                  {/* Stats decorativos */}
+                  <div className="flex gap-3 mb-4">
+                    <div className="bg-white/5 border border-white/10 px-3 py-2 rounded-xl text-center">
+                      <p className="text-purple-400 font-black text-sm">🌐</p>
+                      <p className="text-white/40 text-[9px] uppercase tracking-widest font-bold mt-0.5">Online</p>
+                    </div>
+                    <div className="bg-white/5 border border-white/10 px-3 py-2 rounded-xl text-center">
+                      <p className="text-green-400 font-black text-sm">⚡</p>
+                      <p className="text-white/40 text-[9px] uppercase tracking-widest font-bold mt-0.5">Turbo</p>
+                    </div>
+                    <div className="bg-white/5 border border-white/10 px-3 py-2 rounded-xl text-center">
+                      <p className="text-cyan-400 font-black text-sm">💀</p>
+                      <p className="text-white/40 text-[9px] uppercase tracking-widest font-bold mt-0.5">Batalha</p>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-gray-600 uppercase font-black tracking-widest opacity-60">
+                    {isMobile ? "Joystick + ⚡ Turbo" : "Mouse para guiar | Clique = Turbo"}
+                  </p>
                 </div>
 
                 {/* Coluna de Controles — adaptável */}
