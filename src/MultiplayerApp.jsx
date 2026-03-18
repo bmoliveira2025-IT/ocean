@@ -166,10 +166,18 @@ export default function MultiplayerApp({ onBack }) {
       setPing(Date.now() - sentAt);
     });
 
+    // Death notification from server
+    socket.on('you_died', ({ score: finalScore }) => {
+      cancelAnimationFrame(animFrameRef.current);
+      setScore(finalScore);
+      setUiState('DIED');
+    });
+
     return () => {
       socket.off('joined'); socket.off('state');
       socket.off('orbSpawn'); socket.off('orbDelete');
       socket.off('connect_error'); socket.off('pong_check');
+      socket.off('you_died');
       cancelAnimationFrame(animFrameRef.current);
     };
   }, []);

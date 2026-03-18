@@ -318,7 +318,6 @@ class GameRoom {
     // Remove dead snakes and respawn bots
     this.bots = this.bots.filter(bot => {
       if (bot.dead) {
-        // Respawn bot after delay
         setTimeout(() => {
           const name = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
           const colors = ['#00b4d8', '#e07a5f', '#52b788', '#f4d03f', '#9b59b6'];
@@ -331,7 +330,16 @@ class GameRoom {
       return true;
     });
 
-    // Broadcast state to all clients
+    // Notify dead players and remove them from the room
+    this.players.forEach((snake, socketId) => {
+      if (snake.dead) {
+        this.io.to(socketId).emit('you_died', { score: Math.floor(snake.score) });
+        this.players.delete(socketId);
+        this.inputs.delete(socketId);
+      }
+    });
+
+    // Broadcast state — only alive snakes
     const playerDTOs = [...this.players.values()].map(s => s.toDTO());
     const botDTOs = this.bots.filter(b => !b.dead).map(s => s.toDTO());
 
