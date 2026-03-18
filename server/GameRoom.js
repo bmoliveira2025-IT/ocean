@@ -303,8 +303,10 @@ class GameRoom {
     allSnakes.forEach(attacker => {
       if (attacker.dead || attacker.spawnProtection > 0) return;
       allSnakes.forEach(defender => {
+        if (attacker.dead) return; // FIX: Break if already died to another snake this tick!
         if (defender === attacker || defender.dead) return;
         defender.body.forEach((seg, i) => {
+          if (attacker.dead) return; // FIX: Break if already died to another segment this tick!
           if (i < 3) return; // skip head segments
           if (distSq(attacker.x, attacker.y, seg.x, seg.y) < (attacker.size * 0.8) ** 2) {
             if (attacker.shieldTimer > 0) {
