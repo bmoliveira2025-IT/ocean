@@ -208,6 +208,8 @@ class GameRoom {
     this.orbs = new Map();
     this.bots = [];
     this.tickInterval = null;
+    this.lastTime = Date.now();
+    this.events = [];
     this.currentRadius = MIN_RADIUS;
     this._spawnInitialOrbs(500);
     this._spawnBots(10);
