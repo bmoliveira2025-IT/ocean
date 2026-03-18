@@ -25,7 +25,7 @@ const COLORS = {
   brBlue: '#002776'
 };
 
-const WORLD_SIZE = 6000;
+// WORLD_SIZE is now dynamic, we use worldRadius from server
 const lerp = (a, b, t) => a + (b - a) * t;
 
 // ==========================================
@@ -196,8 +196,9 @@ function drawOrb(ctx, orb) {
 export default function MultiplayerApp({ onBack }) {
   const canvasRef = useRef(null);
   const animFrameRef = useRef(null);
-  const cameraRef = useRef({ x: WORLD_SIZE / 2, y: WORLD_SIZE / 2, zoom: 1 });
+  const cameraRef = useRef({ x: 0, y: 0, zoom: 0.8 });
   const worldRef = useRef({ snakes: [], orbs: [] });
+  const worldRadiusRef = useRef(1500); 
   const inputRef = useRef({ angle: 0, isBoosting: false });
   const myIdRef = useRef(null);
   const settingsRef = useRef(qualityManager.getSettings());
@@ -257,8 +258,9 @@ export default function MultiplayerApp({ onBack }) {
       startRenderLoop();
     });
 
-    socket.on('state', ({ snakes, events }) => {
+    socket.on('state', ({ snakes, worldRadius, events }) => {
       worldRef.current.snakes = snakes;
+      if (worldRadius) worldRadiusRef.current = worldRadius;
 
       // FIX 1: Process orbCollected events to remove eaten orbs
       if (events && events.length > 0) {
@@ -434,9 +436,14 @@ export default function MultiplayerApp({ onBack }) {
           }
         }
         
-        // Boundaries
-        snake.x = Math.max(0, Math.min(snake.x, WORLD_SIZE));
-        snake.y = Math.max(0, Math.min(snake.y, WORLD_SIZE));
+        // Boundaries (Visual Client-Side Prediction)
+        const R = worldRadiusRef.current;
+        const distSq = snake.x * snake.x + snake.y * snake.y;
+        if (distSq > R * R) {
+          const angleToCenter = Math.atan2(-snake.y, -snake.x);
+          snake.x = Math.cos(angleToCenter) * -R;
+          snake.y = Math.sin(angleToCenter) * -R;
+        }
 
         // Update body path (shared logic for smoothness)
         if (!snake.path) snake.path = snake.body.map(p => ({x:p[0], y:p[1]})).reverse();
@@ -471,7 +478,12 @@ export default function MultiplayerApp({ onBack }) {
       if (me) {
         cameraRef.current.x = lerp(cameraRef.current.x, me.x, 0.1);
         cameraRef.current.y = lerp(cameraRef.current.y, me.y, 0.1);
-        cameraRef.current.zoom = lerp(cameraRef.current.zoom, Math.max(0.2, 1.2 * Math.pow(500 / Math.max(500, me.score || 500), 0.45)), 0.05);
+        
+        // FOV Formula: Proportional and gradual.
+        // Base zoom 0.8. Only start shrinking significantly after score 2000.
+        // math: 0.8 * (target_scale ^ power)
+        const targetZoom = Math.max(0.15, 0.85 * Math.pow(2500 / Math.max(2500, me.score), 0.35));
+        cameraRef.current.zoom = lerp(cameraRef.current.zoom, targetZoom, 0.05);
       }
       const renderSnakes = smoothSnakes;
 
@@ -518,8 +530,20 @@ export default function MultiplayerApp({ onBack }) {
           ctx.closePath(); ctx.fillStyle = '#0e121a'; ctx.fill(); ctx.stroke();
         }
       }
-      ctx.strokeStyle = 'rgba(255,60,60,0.3)'; ctx.lineWidth = 10;
-      ctx.strokeRect(0, 0, WORLD_SIZE, WORLD_SIZE);
+      // Circular Boundary Border
+      const worldR = worldRadiusRef.current;
+      ctx.beginPath();
+      ctx.arc(0, 0, worldR, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,60,60,0.4)';
+      ctx.lineWidth = 15;
+      ctx.stroke();
+      
+      // Outer Shadow for mapping edge
+      ctx.beginPath();
+      ctx.arc(0, 0, worldR + 1000, 0, Math.PI * 2);
+      ctx.arc(0, 0, worldR, 0, Math.PI * 2, true);
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fill();
 
       orbs.forEach(orb => {
         if (Math.abs(orb.x - camX) < viewW / 2 + 50 && Math.abs(orb.y - camY) < viewH / 2 + 50) drawOrb(ctx, orb);
@@ -535,15 +559,17 @@ export default function MultiplayerApp({ onBack }) {
       ctx.restore();
 
       if (me) {
-        const mmR = 55; const mmX = canvas.width - mmR - 15; const mmY = canvas.height - mmR - 15;
-        ctx.fillStyle = 'rgba(10,15,25,0.5)';
+        const mmR = 60; const mmX = canvas.width - mmR - 20; const mmY = canvas.height - mmR - 20;
+        ctx.fillStyle = 'rgba(10,15,25,0.7)';
         ctx.beginPath(); ctx.arc(mmX, mmY, mmR, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 2; ctx.stroke();
+        
+        const curR = worldRadiusRef.current;
         snakes.forEach(s => {
-          const px = mmX + (s.x / WORLD_SIZE - 0.5) * (mmR * 1.8);
-          const py = mmY + (s.y / WORLD_SIZE - 0.5) * (mmR * 1.8);
-          ctx.fillStyle = s.id === myIdRef.current ? 'white' : s.color + '88';
-          ctx.beginPath(); ctx.arc(px, py, s.id === myIdRef.current ? 3 : 2, 0, Math.PI * 2); ctx.fill();
+          const px = mmX + (s.x / curR) * (mmR * 0.9);
+          const py = mmY + (s.y / curR) * (mmR * 0.9);
+          ctx.fillStyle = s.id === myIdRef.current ? 'white' : s.color + 'bb';
+          ctx.beginPath(); ctx.arc(px, py, s.id === myIdRef.current ? 3.5 : 2.5, 0, Math.PI * 2); ctx.fill();
         });
       }
 

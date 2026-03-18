@@ -1,10 +1,12 @@
 // GameRoom.js – Lógica do servidor de jogo
-const WORLD_SIZE = 6000;
 const BASE_SPEED = 140;
 const BOOST_SPEED = 252;
 const TURN_SPEED = 4.0;
 const INITIAL_LENGTH = 15;
 const TICK_RATE = 12;
+const MIN_RADIUS = 1500;
+const MAX_RADIUS = 6000;
+const RADIUS_PER_PLAYER = 150;
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const lerpAngle = (a, b, t) => {
@@ -32,10 +34,17 @@ const BOT_NAMES = [
 const ORB_COLORS = ['#52b788', '#e07a5f', '#1a6fa8', '#f4d03f', '#9b59b6'];
 
 class Orb {
-  constructor(x = null, y = null, color = null, isTrail = false) {
+  constructor(radius, x = null, y = null, color = null, isTrail = false) {
     this.id = Math.random().toString(36).substring(2, 9);
-    this.x = x !== null ? x : randomRange(100, WORLD_SIZE - 100);
-    this.y = y !== null ? y : randomRange(100, WORLD_SIZE - 100);
+    if (x !== null && y !== null) {
+      this.x = x;
+      this.y = y;
+    } else {
+      const angle = Math.random() * Math.PI * 2;
+      const r = Math.sqrt(Math.random()) * (radius - 100);
+      this.x = Math.cos(angle) * r;
+      this.y = Math.sin(angle) * r;
+    }
     this.value = randomRange(10, 30);
     this.size = Math.sqrt(this.value) * 1.5;
     this.color = color || ORB_COLORS[Math.floor(Math.random() * ORB_COLORS.length)];
@@ -48,8 +57,8 @@ class Orb {
 }
 
 class PowerOrb extends Orb {
-  constructor(type, x = null, y = null) {
-    super(x, y);
+  constructor(type, radius, x = null, y = null) {
+    super(radius, x, y);
     this.isPowerup = true;
     this.type = type; // 0=shield, 1=speed, 2=magnet, 3=coin
     const typeColors = ['#00b4d8', '#f4d03f', '#9b59b6', '#ffd700'];
@@ -60,14 +69,16 @@ class PowerOrb extends Orb {
 }
 
 class Snake {
-  constructor(id, name, skinColor, skinType, isBot = false) {
+  constructor(id, name, skinColor, skinType, radius, isBot = false) {
     this.id = id;
     this.name = name;
     this.color = skinColor || '#39ff14';
     this.skinType = skinType || 'cyclops';
     this.isBot = isBot;
-    this.x = randomRange(500, WORLD_SIZE - 500);
-    this.y = randomRange(500, WORLD_SIZE - 500);
+    const spawnAngle = Math.random() * Math.PI * 2;
+    const spawnR = Math.sqrt(Math.random()) * (radius - 500);
+    this.x = Math.cos(spawnAngle) * spawnR;
+    this.y = Math.sin(spawnAngle) * spawnR;
     this.angle = Math.random() * Math.PI * 2;
     this.targetAngle = this.angle;
     this.score = 500;
@@ -128,13 +139,18 @@ class Snake {
     this.x += Math.cos(this.angle) * speed * dt;
     this.y += Math.sin(this.angle) * speed * dt;
 
-    // Wall
-    if (this.x < 0 || this.x > WORLD_SIZE || this.y < 0 || this.y > WORLD_SIZE) {
+    // Circular Wall
+    const distCenterSq = this.x * this.x + this.y * this.y;
+    if (distCenterSq > radius * radius) {
       if (this.spawnProtection > 0) {
-        this.x = Math.max(0, Math.min(this.x, WORLD_SIZE));
-        this.y = Math.max(0, Math.min(this.y, WORLD_SIZE));
-        this.angle += Math.PI;
+        // Bounce back slightly
+        const angleToCenter = Math.atan2(-this.y, -this.x);
+        this.angle = angleToCenter + (Math.random() - 0.5) * 0.5;
         this.targetAngle = this.angle;
+        // Move back inside slightly
+        const pushR = radius - 5;
+        this.x = Math.cos(angleToCenter) * -pushR;
+        this.y = Math.sin(angleToCenter) * -pushR;
       } else {
         this.dead = true;
         return;
@@ -149,14 +165,15 @@ class Snake {
     if (this.isBot) this.score += dt * 10;
   }
 
-  updateAI(dt) {
+  updateAI(dt, radius) {
     // Simple wander + wall avoidance
     this.targetAngle += (Math.random() - 0.5) * dt * 2;
     const wallMargin = 500;
-    if (this.x < wallMargin) this.targetAngle = lerpAngle(this.targetAngle, 0, dt * 2);
-    if (this.y < wallMargin) this.targetAngle = lerpAngle(this.targetAngle, Math.PI / 2, dt * 2);
-    if (this.x > WORLD_SIZE - wallMargin) this.targetAngle = lerpAngle(this.targetAngle, Math.PI, dt * 2);
-    if (this.y > WORLD_SIZE - wallMargin) this.targetAngle = lerpAngle(this.targetAngle, -Math.PI / 2, dt * 2);
+    const distCenterSq = this.x * this.x + this.y * this.y;
+    if (distCenterSq > (radius - wallMargin) ** 2) {
+      const angleToCenter = Math.atan2(-this.y, -this.x);
+      this.targetAngle = lerpAngle(this.targetAngle, angleToCenter, dt * 2);
+    }
   }
 
   toDTO() {
@@ -191,22 +208,27 @@ class GameRoom {
     this.orbs = new Map();
     this.bots = [];
     this.tickInterval = null;
-    this.lastTime = Date.now();
-    this.events = []; // Events to broadcast this tick (kills, etc.)
-
+    this.currentRadius = MIN_RADIUS;
     this._spawnInitialOrbs(500);
     this._spawnBots(10);
     this._startTick();
   }
 
+  _updateRadius() {
+    const playerCount = this.players.size + this.bots.length;
+    const targetRadius = Math.min(MAX_RADIUS, MIN_RADIUS + playerCount * RADIUS_PER_PLAYER);
+    // Smoothly transition radius
+    this.currentRadius = lerp(this.currentRadius, targetRadius, 0.01);
+  }
+
   _spawnInitialOrbs(count) {
     for (let i = 0; i < count; i++) {
-      const o = new Orb();
+      const o = new Orb(this.currentRadius);
       this.orbs.set(o.id, o);
     }
     for (let i = 0; i < 10; i++) {
       const type = Math.floor(Math.random() * 4);
-      const p = new PowerOrb(type);
+      const p = new PowerOrb(type, this.currentRadius);
       this.orbs.set(p.id, p);
     }
   }
@@ -218,7 +240,7 @@ class GameRoom {
       const skinTypes = ['cyclops', 'lula', 'dragon', 'chain', 'skeleton', 'dragon_neon', 'seahorse', 'skeleton_neon'];
       const color = colors[Math.floor(Math.random() * colors.length)];
       const skinType = skinTypes[Math.floor(Math.random() * skinTypes.length)];
-      const bot = new Snake(`bot_${i}_${Date.now()}`, name, color, skinType, true);
+      const bot = new Snake(`bot_${i}_${Date.now()}`, name, color, skinType, this.currentRadius, true);
       bot.score = randomRange(300, 3000);
       this.bots.push(bot);
     }
@@ -229,7 +251,7 @@ class GameRoom {
   }
 
   addPlayer(socketId, name, skinColor, skinType) {
-    const snake = new Snake(socketId, name, skinColor, skinType, false);
+    const snake = new Snake(socketId, name, skinColor, skinType, this.currentRadius, false);
     this.players.set(socketId, snake);
     this.inputs.set(socketId, { angle: 0, isBoosting: false });
 
@@ -263,6 +285,7 @@ class GameRoom {
     const dt = Math.min((now - this.lastTime) / 1000, 0.1);
     this.lastTime = now;
     this.events = [];
+    this._updateRadius();
 
     const allSnakes = [...this.players.values(), ...this.bots];
 
@@ -271,7 +294,7 @@ class GameRoom {
     allSnakes.forEach(snake => {
       if (snake.dead) return;
       const input = this.inputs.get(snake.id);
-      snake.update(dt, input);
+      snake.update(dt, input, this.currentRadius);
       
       // Drops for boost trail
       if (snake.isBoosting && snake.boostEnergy > 0 && snake.score > 150) {
@@ -279,6 +302,7 @@ class GameRoom {
           const tail = snake.body[snake.body.length - 1];
           if (tail) {
             const dropOrb = new Orb(
+              this.currentRadius,
               tail.x + (Math.random() - 0.5) * 20,
               tail.y + (Math.random() - 0.5) * 20,
               snake.color,
@@ -327,7 +351,7 @@ class GameRoom {
       this.orbs.delete(orbId);
       setTimeout(() => {
         if (this.orbs.size < 1500) {
-          const newOrb = new Orb();
+          const newOrb = new Orb(this.currentRadius);
           this.orbs.set(newOrb.id, newOrb);
           this.io.to(this.id).emit('orbSpawn', [{ id: newOrb.id, x: Math.round(newOrb.x), y: Math.round(newOrb.y), color: newOrb.color, size: newOrb.size, isPowerup: false }]);
         }
@@ -385,7 +409,7 @@ class GameRoom {
           const color = colors[Math.floor(Math.random() * colors.length)];
           const skinTypes = ['cyclops', 'lula', 'dragon', 'chain', 'skeleton', 'dragon_neon', 'seahorse', 'skeleton_neon'];
           const skinType = skinTypes[Math.floor(Math.random() * skinTypes.length)];
-          const newBot = new Snake(`bot_${Date.now()}`, name, color, skinType, true);
+          const newBot = new Snake(`bot_${Date.now()}`, name, color, skinType, this.currentRadius, true);
           this.bots.push(newBot);
         }, 3000);
         return false;
@@ -408,6 +432,7 @@ class GameRoom {
 
     this.io.to(this.id).emit('state', {
       snakes: [...playerDTOs, ...botDTOs],
+      worldRadius: Math.round(this.currentRadius),
       events: this.events,
       tick: Date.now()
     });
@@ -417,7 +442,7 @@ class GameRoom {
     const count = Math.min(50, Math.floor(snake.body.length / 2));
     for (let i = 0; i < count; i++) {
       const seg = snake.body[i * 2] || snake.body[snake.body.length - 1];
-      const o = new Orb();
+      const o = new Orb(this.currentRadius);
       o.x = seg.x + randomRange(-20, 20);
       o.y = seg.y + randomRange(-20, 20);
       o.value = Math.max(10, snake.score / snake.body.length * 2);
