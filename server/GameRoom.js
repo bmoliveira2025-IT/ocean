@@ -4,7 +4,7 @@ const BASE_SPEED = 140;
 const BOOST_SPEED = 252;
 const TURN_SPEED = 4.0;
 const INITIAL_LENGTH = 15;
-const TICK_RATE = 20;
+const TICK_RATE = 12;
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const lerpAngle = (a, b, t) => {
@@ -186,8 +186,8 @@ class GameRoom {
     this.lastTime = Date.now();
     this.events = []; // Events to broadcast this tick (kills, etc.)
 
-    this._spawnInitialOrbs(1500);
-    this._spawnBots(30);
+    this._spawnInitialOrbs(500);
+    this._spawnBots(10);
     this._startTick();
   }
 
