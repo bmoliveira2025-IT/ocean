@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import Logo from './components/Logo';
 import { socket } from './socket';
 import { qualityManager } from './utils/QualityManager';
+import { SKINS, RARITY_STYLE } from './skins';
 
 const WORLD_SIZE = 6000;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -72,6 +73,7 @@ export default function MultiplayerApp({ onBack }) {
   const [quality, setQuality] = useState(qualityManager.currentQuality);
   const [uiState, setUiState] = useState('LOBBY');
   const [playerName, setPlayerName] = useState('');
+  const [selectedSkinIdx, setSelectedSkinIdx] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
   const [score, setScore] = useState(0);
   const [rank, setRank] = useState('-');
@@ -79,6 +81,8 @@ export default function MultiplayerApp({ onBack }) {
   const [killFeed, setKillFeed] = useState([]);
   const [killCount, setKillCount] = useState(0);
   const [ping, setPing] = useState(null);
+  const [powerupBanner, setPowerupBanner] = useState(null);
+  const [activePowerups, setActivePowerups] = useState({ shield: 0, speed: 0 });
   const [connectionError, setConnectionError] = useState(null);
   const joystick = useRef({ active: false, baseX: 0, baseY: 0 });
 
@@ -130,6 +134,13 @@ export default function MultiplayerApp({ onBack }) {
             setKillCount(prev => prev + 1);
             setTimeout(() => setKillFeed(prev => prev.filter(k => k.id !== kill.id)), 4000);
           }
+          if (ev.type === 'powerup' && ev.playerId === myIdRef.current) {
+            const labels = ['🛡️ Escudo ativado!', '⚡ Velocidade ativada!', '🪴 Ímã ativado!', '🪙 +1 moeda!'];
+            const colors = ['#00b4d8', '#f4d03f', '#9b59b6', '#ffd700'];
+            const banner = { text: labels[ev.orbType] ?? 'Power-up!', color: colors[ev.orbType] ?? '#fff' };
+            setPowerupBanner(banner);
+            setTimeout(() => setPowerupBanner(null), 2500);
+          }
         });
       }
 
@@ -141,19 +152,17 @@ export default function MultiplayerApp({ onBack }) {
           const dx = me.x - p.x, dy = me.y - p.y;
           const dist = Math.hypot(dx, dy);
           if (dist > 250) {
-            // Too far off — snap to server
             p.x = me.x; p.y = me.y; p.angle = me.angle;
           } else if (dist > 3) {
-            // Small drift — gently blend
             p.x += dx * 0.15; p.y += dy * 0.15;
           }
-          // Body and size always from server (authoritative)
           p.body = me.body; p.size = me.size; p.color = me.color;
           p.score = me.score;
         } else {
           predictedMeRef.current = { ...me, body: [...(me.body || [])] };
         }
         setScore(Math.floor(me.score));
+        setActivePowerups({ shield: me.shieldTimer || 0, speed: me.speedTimer || 0 });
         // FIX 2: Leaderboard - update top 10
         const sorted = [...snakes].sort((a, b) => b.score - a.score);
         setRank(sorted.findIndex(s => s.id === myIdRef.current) + 1);
@@ -351,10 +360,12 @@ export default function MultiplayerApp({ onBack }) {
   const handleJoin = () => {
     if (uiState === 'CONNECTING') return;
     const name = playerName.trim() || `Jogador${Math.floor(Math.random() * 999)}`;
+    const skinColor = SKINS[selectedSkinIdx].color;
     setConnectionError(null); setKillCount(0); setKillFeed([]); setLeaderboard([]);
+    setPowerupBanner(null);
     setUiState('CONNECTING');
     socket.connect();
-    socket.once('connect', () => { socket.emit('join', { name, skinColor: '#39ff14' }); });
+    socket.once('connect', () => { socket.emit('join', { name, skinColor }); });
   };
 
   const handleLeave = () => {
@@ -432,6 +443,24 @@ export default function MultiplayerApp({ onBack }) {
                 Ping: {ping}ms
               </p>
             )}
+            <div className="flex flex-col gap-1 mt-1">
+              {activePowerups.shield > 0 && (
+                <div className="flex items-center gap-1 text-[10px] text-cyan-300">
+                  <span>🛡️</span>
+                  <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div className="h-full bg-cyan-400 rounded-full" style={{ width: `${Math.min(100,(activePowerups.shield/8)*100)}%` }} />
+                  </div>
+                </div>
+              )}
+              {activePowerups.speed > 0 && (
+                <div className="flex items-center gap-1 text-[10px] text-yellow-300">
+                  <span>⚡</span>
+                  <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div className="h-full bg-yellow-400 rounded-full" style={{ width: `${Math.min(100,(activePowerups.speed/6)*100)}%` }} />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Leaderboard top 10 */}
@@ -456,6 +485,15 @@ export default function MultiplayerApp({ onBack }) {
                   Você eliminou <span style={{ color: k.color }} className="font-bold">{k.victim}</span> 💀
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Power-up banner */}
+          {powerupBanner && (
+            <div className="absolute top-20 left-1/2 -translate-x-1/2 pointer-events-none z-30">
+              <div className="px-6 py-2 rounded-full text-base font-black" style={{ background: `${powerupBanner.color}22`, border: `2px solid ${powerupBanner.color}`, color: powerupBanner.color, textShadow: `0 0 10px ${powerupBanner.color}`, animation: 'fadeInUp 0.3s ease' }}>
+                {powerupBanner.text}
+              </div>
             </div>
           )}
 
@@ -502,6 +540,18 @@ export default function MultiplayerApp({ onBack }) {
           )}
 
           <div className="flex flex-col gap-3 w-full max-w-sm">
+
+            {/* Skin selector */}
+            <div className="flex items-center justify-between gap-3 bg-black/20 rounded-2xl p-3 border border-white/10">
+              <button onClick={() => setSelectedSkinIdx(i => (i === 0 ? SKINS.length - 1 : i - 1))} className="text-2xl text-gray-400 hover:text-white transition-all px-1">&lt;</button>
+              <div className="flex flex-col items-center gap-1 flex-1">
+                <div className="w-14 h-14 rounded-full border-4 shadow-lg" style={{ backgroundColor: SKINS[selectedSkinIdx].color, borderColor: SKINS[selectedSkinIdx].color, boxShadow: `0 0 20px ${SKINS[selectedSkinIdx].color}44` }} />
+                <span className="font-black text-xs tracking-widest uppercase" style={{ color: SKINS[selectedSkinIdx].color }}>{SKINS[selectedSkinIdx].name}</span>
+                <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${RARITY_STYLE[SKINS[selectedSkinIdx].rarity]}`}>{SKINS[selectedSkinIdx].rarity}</span>
+              </div>
+              <button onClick={() => setSelectedSkinIdx(i => (i === SKINS.length - 1 ? 0 : i + 1))} className="text-2xl text-gray-400 hover:text-white transition-all px-1">&gt;</button>
+            </div>
+
             <input type="text" maxLength={16} value={playerName} onChange={e => setPlayerName(e.target.value)}
               placeholder="Seu Nickname" onKeyDown={e => e.key === 'Enter' && handleJoin()}
               className="bg-white/5 text-white placeholder-gray-600 px-6 py-4 rounded-2xl text-lg w-full text-center border-2 border-white/10 focus:border-purple-500/50 outline-none transition-all" />
@@ -521,7 +571,7 @@ export default function MultiplayerApp({ onBack }) {
               {uiState === 'CONNECTING' ? 'Conectando...' : '🌊 Entrar Online'}
             </button>
             <button onClick={onBack} className="text-gray-500 hover:text-gray-300 text-sm transition-all">
-              ← Voltar ao Modo Solo
+              ← Voltar ao Menu
             </button>
           </div>
         </div>
