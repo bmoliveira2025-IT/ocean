@@ -801,7 +801,8 @@ export default function MultiplayerApp({ onBack }) {
             </div>
           )}
 
-          <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12 w-full max-w-5xl h-full py-2">
+          {/* Main Content */}
+          <div className="flex flex-col items-center justify-center gap-3 w-full max-w-5xl pt-12 md:pt-4">
             {uiState === 'DIED' ? (
               <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-16 animate-pop-in px-4 w-full max-w-5xl">
                 <div className="flex flex-col items-center md:items-start text-center md:text-left max-w-md">
@@ -819,69 +820,89 @@ export default function MultiplayerApp({ onBack }) {
               </div>
             ) : (
               <>
-                {/* Branding Column */}
-                <div className="flex flex-col items-center text-center max-w-xs md:max-w-md">
-                  <Logo className="hidden lg:block w-24 h-24 md:w-32 md:h-32 mb-1 md:mb-2 drop-shadow-[0_0_20px_rgba(168,85,247,0.4)]" />
-                  <h1 className="text-3xl md:text-6xl font-black tracking-tighter mb-0 md:mb-1" style={{ background: 'linear-gradient(to right, #4ade80, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 0 15px rgba(168, 85, 247, 0.3))' }}>ocean.io</h1>
-                  <p className="text-gray-500 text-[9px] md:text-xs font-bold uppercase tracking-[0.2em] mb-1 md:mb-2 px-4 italic">Sobreviva no Abismo</p>
-                  <p className="text-purple-400 font-black text-[8px] md:text-[10px] mb-4 uppercase tracking-[0.3em] flex items-center gap-1 opacity-80">Online Multiplayer 🌐</p>
-                  <div className="mt-2 md:mt-4 text-[8px] md:text-xs text-gray-600 uppercase font-black tracking-[0.2em] md:tracking-[0.4em] pointer-events-none px-6 opacity-60">
-                    {isMobile ? "Use o Joystick e o Botão de Raio" : "Mouse para guiar | Clique para Turbo"}
-                  </div>
-                </div>
+                {/* ── Layout Principal ── */}
+                <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-12 w-full max-w-5xl">
 
-                {/* Controls Column */}
-                <div className="flex flex-col items-center animate-fade-in w-72 md:w-[400px]">
-                  {connectionError && (
-                    <div className="mb-4 bg-red-900/30 border border-red-500/40 px-4 py-2 rounded-xl text-red-400 text-sm text-center w-full animate-shake">{connectionError}</div>
-                  )}
-
-                  <div className="flex items-center gap-4 md:gap-8 mb-4 md:mb-8 scale-90 md:scale-100 w-full justify-center">
-                    <button onClick={() => setSelectedSkinIdx(i => (i === 0 ? SKINS.length - 1 : i - 1))} className="text-4xl md:text-6xl text-gray-400 hover:text-white transition-all transform hover:scale-110 cursor-pointer p-2">&lt;</button>
-                    <div className="flex flex-col items-center justify-center w-28 md:w-56 group">
-                      <div className="w-20 h-20 md:w-36 md:h-36 rounded-full mb-2 md:mb-4 shadow-[0_12px_24px_rgba(0,0,0,0.8)] flex items-center justify-center relative overflow-hidden transition-all duration-300 border-4 scale-95 group-hover:scale-105" style={{ background: SKINS[selectedSkinIdx].type.startsWith('dragon') ? 'radial-gradient(circle, #333 0%, #000 100%)' : (SKINS[selectedSkinIdx].type === 'chain' ? 'radial-gradient(circle, #4b5563 0%, #111827 100%)' : `radial-gradient(circle, ${SKINS[selectedSkinIdx].color} 0%, rgba(0,0,0,0.95) 100%)`), borderColor: SKINS[selectedSkinIdx].color, boxShadow: SKINS[selectedSkinIdx].id.includes('neon') ? `0 0 30px ${SKINS[selectedSkinIdx].color}44` : 'none' }}>
-                        {SKINS[selectedSkinIdx].type.startsWith('dragon') && <div className="absolute flex gap-1 md:gap-2"><div className="w-2 md:w-4 h-0.5 md:h-1 rotate-[20deg]" style={{ backgroundColor: SKINS[selectedSkinIdx].color, boxShadow: `0 0 8px ${SKINS[selectedSkinIdx].color}` }}></div><div className="w-2 md:w-4 h-0.5 md:h-1 -rotate-[20deg]" style={{ backgroundColor: SKINS[selectedSkinIdx].color, boxShadow: `0 0 8px ${SKINS[selectedSkinIdx].color}` }}></div></div>}
-                        {SKINS[selectedSkinIdx].type.startsWith('skeleton') && <div className="absolute flex flex-col items-center justify-center scale-50 md:scale-100"><div className="w-10 h-9 rounded-full relative" style={{ backgroundColor: SKINS[selectedSkinIdx].color, boxShadow: SKINS[selectedSkinIdx].id.includes('neon') ? `0 0 10px ${SKINS[selectedSkinIdx].color}` : 'none' }}><div className="absolute w-3 h-3 bg-black rounded-full left-1.5 top-2.5"></div><div className="absolute w-3 h-3 bg-black rounded-full right-1.5 top-2.5"></div><div className="absolute w-2 h-1.5 bg-black left-4 bottom-1 rounded-sm"></div></div></div>}
-                        {SKINS[selectedSkinIdx].type === 'cyclops' && <div className="w-4 md:w-6 h-4 md:h-6 bg-[#00b4d8] rounded-full flex items-center justify-center shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]"><div className="w-2 md:w-3 h-2 md:h-3 bg-black rounded-full ml-1"></div></div>}
-                        {SKINS[selectedSkinIdx].type === 'chain' && <div className="absolute flex items-center justify-center transform -rotate-45 scale-50 md:scale-100"><div className="w-12 h-6 border-[4px] border-[#9ca3af] rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.8)] flex items-center justify-center"><div className="w-6 h-12 border-[4px] border-[#d1d5db] rounded-full absolute shadow-[0_2px_4px_rgba(0,0,0,0.8)]"></div></div></div>}
-                        {SKINS[selectedSkinIdx].type === 'lula' && <div className="absolute flex flex-col gap-1 translate-x-1 md:translate-x-2 scale-50 md:scale-100"><div className="w-5 h-5 bg-white rounded-full border-[2px] border-black flex items-center justify-end relative -top-1 left-2"><div className="w-2 h-2 bg-black rounded-full mr-0.5"></div></div><div className="w-5 h-5 bg-white rounded-full border-[2px] border-black flex items-center justify-end relative top-1 left-2"><div className="w-2 h-2 bg-black rounded-full mr-0.5"></div></div></div>}
-                        {SKINS[selectedSkinIdx].type === 'seahorse' && <div className="absolute flex flex-col items-center justify-center scale-50 md:scale-100"><div className="absolute w-8 h-8 bg-[#002776] -top-6 rotate-45 rounded-sm"></div><div className="absolute w-12 h-4 bg-[#ffdf00] rounded-full left-4"></div><div className="absolute w-10 h-10 bg-[#009c3b] rounded-full shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]"></div><div className="absolute w-5 h-5 bg-white rounded-full top-1 right-1 flex items-center justify-end border-2 border-transparent"><div className="w-2.5 h-2.5 bg-black rounded-full mr-0.5"></div></div></div>}
-                      </div>
-                      <div className="flex flex-col items-center gap-1.5 w-full">
-                        <span className={`text-[8px] md:text-[10px] px-3 py-0.5 rounded-full font-black uppercase tracking-widest ${RARITY_STYLE[SKINS[selectedSkinIdx].rarity]} shadow-md animate-pulse-subtle`}>
-                          {SKINS[selectedSkinIdx].rarity}
-                        </span>
-                        <span className="font-black text-[10px] md:text-lg tracking-widest uppercase transition-colors text-center px-4 py-1 rounded bg-black/40 w-full border border-white/5" style={{ color: SKINS[selectedSkinIdx].color }}>{SKINS[selectedSkinIdx].name}</span>
-                      </div>
+                  {/* Branding — oculto em telas pequenas landscape */}
+                  <div className="hidden md:flex flex-col items-center text-center max-w-md">
+                    <Logo className="w-24 h-24 mb-2 drop-shadow-[0_0_20px_rgba(168,85,247,0.4)]" />
+                    <h1 className="text-3xl md:text-6xl font-black tracking-tighter mb-1" style={{ background: 'linear-gradient(to right, #4ade80, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 0 15px rgba(168, 85, 247, 0.3))' }}>ocean.io</h1>
+                    <p className="text-gray-500 text-xs font-bold uppercase tracking-[0.2em] mb-1 italic">Sobreviva no Abismo</p>
+                    <p className="text-purple-400 font-black text-[10px] mb-4 uppercase tracking-[0.3em] flex items-center gap-1 opacity-80">Online Multiplayer 🌐</p>
+                    <div className="text-[10px] text-gray-600 uppercase font-black tracking-[0.3em] pointer-events-none opacity-60">
+                      {isMobile ? "Joystick + Botão de Raio" : "Mouse para guiar | Clique para Turbo"}
                     </div>
-                    <button onClick={() => setSelectedSkinIdx(i => (i === SKINS.length - 1 ? 0 : i + 1))} className="text-4xl md:text-6xl text-gray-400 hover:text-white transition-all transform hover:scale-110 cursor-pointer p-2">&gt;</button>
                   </div>
 
-                  <div className="flex flex-col gap-2 md:gap-5 w-full px-4">
-                    <input type="text" maxLength={16} value={playerName} onChange={e => setPlayerName(e.target.value)}
-                      placeholder="Seu Nickname" onKeyDown={e => e.key === 'Enter' && handleJoin()}
-                      className="bg-white/5 text-white placeholder-gray-600 px-4 py-3 md:px-7 md:py-5 rounded-xl md:rounded-2xl text-sm md:text-xl w-full text-center border-2 border-white/10 focus:border-purple-500/50 outline-none transition-all focus:bg-white/10 shadow-inner" />
-
-                    <button onClick={handleJoin} disabled={uiState === 'CONNECTING'}
-                      className="bg-[#4ade80] hover:bg-[#22c55e] disabled:bg-gray-600 text-black font-black py-3 md:py-5 px-10 md:px-14 rounded-full text-base md:text-2xl shadow-[0_5px_0_#166534] active:translate-y-[4px] active:shadow-none transition-all uppercase tracking-tighter disabled:opacity-50">
-                      {uiState === 'CONNECTING' ? 'Conectando...' : 'Entrar na Arena'}
-                    </button>
-                    
-                    {/* Botão Tela Cheia Visível Mobile Landscape */}
-                    <button onClick={() => { if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen(); }} className="bg-blue-600/80 hover:bg-blue-500 text-white font-bold py-2 md:py-3 px-8 rounded-full text-[10px] md:text-sm uppercase tracking-widest border border-white/20 flex items-center justify-center gap-2 transition-all opacity-80 mt-1">
-                      🔲 Tela Cheia (F11)
-                    </button>
-                    
-                    {multiHighScore > 0 && (
-                      <div className="flex flex-col items-center gap-0 opacity-60">
-                        <p className="text-[8px] md:text-[10px] uppercase font-bold text-gray-500 tracking-[0.2em]">Recorde Pessoal</p>
-                        <p className="text-sm md:text-xl font-black text-white">{multiHighScore}</p>
-                      </div>
+                  {/* Coluna de Controles */}
+                  <div className="flex flex-col items-center w-full max-w-sm md:w-[400px] gap-3">
+                    {connectionError && (
+                      <div className="bg-red-900/30 border border-red-500/40 px-4 py-2 rounded-xl text-red-400 text-sm text-center w-full animate-shake">{connectionError}</div>
                     )}
 
-                    <button onClick={onBack} className="text-gray-500 hover:text-gray-300 text-[10px] md:text-sm transition-all mt-2 font-medium opacity-50 hover:opacity-100">
-                      ← Trocar Modo
+                    {/* Título visível apenas em mobile */}
+                    <h1 className="md:hidden text-3xl font-black tracking-tighter" style={{ background: 'linear-gradient(to right, #4ade80, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>ocean.io</h1>
+
+                    {/* Seletor de Skin compacto */}
+                    <div className="flex items-center gap-3 w-full bg-black/30 border border-white/10 rounded-2xl p-3 backdrop-blur-sm">
+                      <button onClick={() => setSelectedSkinIdx(i => (i === 0 ? SKINS.length - 1 : i - 1))}
+                        className="text-2xl text-gray-400 hover:text-white transition-all hover:scale-125 active:scale-90 px-1 flex-shrink-0">‹</button>
+
+                      {/* Preview da Skin */}
+                      <div className="w-16 h-16 flex-shrink-0 rounded-full flex items-center justify-center relative border-2"
+                        style={{ background: SKINS[selectedSkinIdx].type.startsWith('dragon') ? 'radial-gradient(circle, #333 0%, #000 100%)' : (SKINS[selectedSkinIdx].type === 'chain' ? 'radial-gradient(circle, #4b5563 0%, #111827 100%)' : `radial-gradient(circle, ${SKINS[selectedSkinIdx].color} 0%, rgba(0,0,0,0.95) 100%)`), borderColor: SKINS[selectedSkinIdx].color, boxShadow: `0 0 12px ${SKINS[selectedSkinIdx].color}44` }}>
+                        {SKINS[selectedSkinIdx].type === 'cyclops' && <div className="w-5 h-5 bg-[#00b4d8] rounded-full flex items-center justify-center"><div className="w-2.5 h-2.5 bg-black rounded-full ml-0.5"/></div>}
+                        {SKINS[selectedSkinIdx].type.startsWith('dragon') && <div className="text-lg" style={{color: SKINS[selectedSkinIdx].color}}>🐉</div>}
+                        {SKINS[selectedSkinIdx].type.startsWith('skeleton') && <div className="text-lg">💀</div>}
+                        {SKINS[selectedSkinIdx].type === 'lula' && <div className="text-lg">🦑</div>}
+                        {SKINS[selectedSkinIdx].type === 'chain' && <div className="text-lg">⛓️</div>}
+                        {SKINS[selectedSkinIdx].type === 'seahorse' && <div className="text-lg">🦄</div>}
+                      </div>
+
+                      {/* Nome e raridade */}
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest self-start mb-1 ${RARITY_STYLE[SKINS[selectedSkinIdx].rarity]}`}>
+                          {SKINS[selectedSkinIdx].rarity}
+                        </span>
+                        <span className="font-black text-sm uppercase truncate" style={{ color: SKINS[selectedSkinIdx].color }}>
+                          {SKINS[selectedSkinIdx].name}
+                        </span>
+                      </div>
+
+                      <button onClick={() => setSelectedSkinIdx(i => (i === SKINS.length - 1 ? 0 : i + 1))}
+                        className="text-2xl text-gray-400 hover:text-white transition-all hover:scale-125 active:scale-90 px-1 flex-shrink-0">›</button>
+                    </div>
+
+                    {/* Nickname */}
+                    <input type="text" maxLength={16} value={playerName} onChange={e => setPlayerName(e.target.value)}
+                      placeholder="Seu Nickname" onKeyDown={e => e.key === 'Enter' && handleJoin()}
+                      className="bg-white/5 text-white placeholder-gray-600 px-4 py-3 rounded-xl text-sm w-full text-center border-2 border-white/10 focus:border-purple-500/50 outline-none transition-all focus:bg-white/10" />
+
+                    {/* Jogar */}
+                    <button onClick={handleJoin} disabled={uiState === 'CONNECTING'}
+                      className="bg-[#4ade80] hover:bg-[#22c55e] disabled:bg-gray-600 text-black font-black py-4 px-10 rounded-full text-xl shadow-[0_5px_0_#166534] active:translate-y-[4px] active:shadow-none transition-all uppercase tracking-tighter disabled:opacity-50 w-full">
+                      {uiState === 'CONNECTING' ? 'Conectando...' : 'Entrar na Arena'}
                     </button>
+
+                    {/* Extras: Recorde + Tela Cheia */}
+                    <div className="flex items-center justify-between w-full px-1">
+                      {multiHighScore > 0 && (
+                        <div className="flex flex-col items-start opacity-60">
+                          <p className="text-[9px] uppercase font-bold text-gray-500 tracking-widest">Recorde</p>
+                          <p className="text-base font-black text-white">{multiHighScore}</p>
+                        </div>
+                      )}
+                      <button onClick={() => { if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen(); }}
+                        className="ml-auto bg-blue-600/60 hover:bg-blue-500/80 text-white/80 font-bold py-1.5 px-4 rounded-full text-[10px] uppercase tracking-widest border border-white/10 transition-all">
+                        🔲 Tela Cheia
+                      </button>
+                    </div>
+
+                    {onBack && (
+                      <button onClick={onBack} className="text-gray-500 hover:text-gray-300 text-[10px] transition-all font-medium opacity-50 hover:opacity-100">
+                        ← Trocar Modo
+                      </button>
+                    )}
                   </div>
                 </div>
               </>
