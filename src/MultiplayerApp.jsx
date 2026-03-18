@@ -608,7 +608,7 @@ export default function MultiplayerApp({ onBack }) {
   };
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-gray-900 select-none touch-none font-sans">
+          <div className="fixed inset-0 overflow-hidden bg-gray-900 select-none touch-none font-sans">
       <canvas ref={canvasRef} className="block w-full h-full cursor-crosshair touch-none"
         onMouseMove={handleMouseMove} onTouchMove={handleTouchMove}
         onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} />
