@@ -1416,9 +1416,9 @@ export default function OceanApp() {
               <div className="absolute bottom-8 left-8 w-32 h-32 bg-white/10 rounded-full border-2 border-white/20 backdrop-blur-md z-50 pointer-events-auto shadow-[0_0_20px_rgba(255,255,255,0.1)] touch-none" onTouchStart={handleJoystickStart} onTouchMove={handleJoystickMove} onTouchEnd={handleJoystickEnd} onContextMenu={(e) => e.preventDefault()}>
                 <div className="absolute top-1/2 left-1/2 w-14 h-14 bg-white/50 rounded-full shadow-lg transform -translate-x-1/2 -translate-y-1/2 border border-white/80 transition-transform duration-75" id="joystick-knob"></div>
               </div>
-              <div className="absolute bottom-4 right-4 w-[120px] h-[120px] flex items-center justify-center z-50 pointer-events-auto touch-none" onTouchStart={(e) => { e.stopPropagation(); if (state.current.player) state.current.player.isBoosting = true; }} onTouchEnd={(e) => { e.stopPropagation(); if (state.current.player) state.current.player.isBoosting = false; }} onContextMenu={(e) => e.preventDefault()} >
-                <div className="w-[80px] h-[80px] bg-yellow-500/30 rounded-full border-2 border-yellow-400 backdrop-blur-md flex items-center justify-center shadow-[0_0_20px_rgba(250,204,21,0.4)] active:bg-yellow-500/60 active:scale-95 transition-all pointer-events-none">
-                  <span className="text-4xl translate-x-[2px] translate-y-[2px]">⚡</span>
+              <div className="absolute bottom-4 right-4 w-[100px] h-[100px] flex items-center justify-center z-50 pointer-events-auto touch-none" onTouchStart={(e) => { e.stopPropagation(); if (state.current.player) state.current.player.isBoosting = true; }} onTouchEnd={(e) => { e.stopPropagation(); if (state.current.player) state.current.player.isBoosting = false; }} onContextMenu={(e) => e.preventDefault()} >
+                <div className="w-[70px] h-[70px] bg-yellow-500/30 rounded-full border-2 border-yellow-400 backdrop-blur-md flex items-center justify-center shadow-[0_0_15px_rgba(250,204,21,0.4)] active:bg-yellow-500/60 active:scale-95 transition-all pointer-events-none">
+                  <span className="text-3xl translate-x-[2px] translate-y-[2px]">⚡</span>
                 </div>
               </div>
             </>
@@ -1428,7 +1428,7 @@ export default function OceanApp() {
             setBgmEnabled(newState);
             localStorage.setItem('ocean_bgm', newState.toString());
             state.current.audio.setBGM(newState);
-          }} className={`absolute top-4 right-4 sm:top-auto ${isMobile ? 'sm:bottom-36' : 'sm:bottom-4'} bg-black/40 hover:bg-black/60 text-white w-12 h-12 flex items-center justify-center rounded-full backdrop-blur border border-white/10 transition-all text-xl cursor-pointer z-50 shadow-lg`} title={bgmEnabled ? "Desativar BGM" : "Ativar BGM"}>
+          }} className={`absolute top-4 right-4 sm:top-auto ${isMobile ? 'sm:bottom-[120px]' : 'sm:bottom-4'} bg-transparent hover:bg-white/10 text-white w-12 h-12 flex items-center justify-center rounded-full transition-all text-xl cursor-pointer z-50 opacity-60 hover:opacity-100 drop-shadow-lg`} title={bgmEnabled ? "Desativar BGM" : "Ativar BGM"}>
             {bgmEnabled ? '🎵' : '🔇'}
           </button>
           <button onClick={() => {
@@ -1436,7 +1436,7 @@ export default function OceanApp() {
             setSfxEnabled(newState);
             localStorage.setItem('ocean_sfx', newState.toString());
             state.current.audio.setSFX(newState);
-          }} className={`absolute top-4 right-20 sm:top-auto ${isMobile ? 'sm:bottom-36' : 'sm:bottom-4'} bg-black/40 hover:bg-black/60 text-white w-12 h-12 flex items-center justify-center rounded-full backdrop-blur border border-white/10 transition-all text-xl cursor-pointer z-50 shadow-lg`} title={sfxEnabled ? "Desativar Efeitos" : "Ativar Efeitos"}>
+          }} className={`absolute top-4 right-16 sm:top-auto ${isMobile ? 'sm:bottom-[120px]' : 'sm:bottom-4'} bg-transparent hover:bg-white/10 text-white w-12 h-12 flex items-center justify-center rounded-full transition-all text-xl cursor-pointer z-50 opacity-60 hover:opacity-100 drop-shadow-lg`} title={sfxEnabled ? "Desativar Efeitos" : "Ativar Efeitos"}>
             {sfxEnabled ? '🔊' : '🔇'}
           </button>
         </>
