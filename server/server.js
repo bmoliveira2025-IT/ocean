@@ -21,7 +21,7 @@ const io = new Server(httpServer, {
   },
   // Otimizações de performance
   pingInterval: 10000,
-  pingTimeout: 5000
+  pingTimeout: 15000
 });
 
 const rooms = new Map(); // roomId → GameRoom

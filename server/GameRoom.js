@@ -25,7 +25,7 @@ const BOT_NAMES = [
 const ORB_COLORS = ['#52b788', '#e07a5f', '#1a6fa8', '#f4d03f', '#9b59b6'];
 
 class Orb {
-  constructor(x = null, y = null, color = null) {
+  constructor(x = null, y = null, color = null, isTrail = false) {
     this.id = Math.random().toString(36).substring(2, 9);
     this.x = x !== null ? x : randomRange(100, WORLD_SIZE - 100);
     this.y = y !== null ? y : randomRange(100, WORLD_SIZE - 100);
@@ -33,7 +33,10 @@ class Orb {
     this.size = Math.sqrt(this.value) * 1.5;
     this.color = color || ORB_COLORS[Math.floor(Math.random() * ORB_COLORS.length)];
     this.isPowerup = false;
-    this.collected = false;
+    this.isTrail = isTrail;
+    if (isTrail) {
+      this.expiresAt = Date.now() + 5000; // 5 seconds lifespan
+    }
   }
 }
 
@@ -270,10 +273,11 @@ class GameRoom {
             const dropOrb = new Orb(
               tail.x + (Math.random() - 0.5) * 20,
               tail.y + (Math.random() - 0.5) * 20,
-              snake.color
+              snake.color,
+              true // isTrail
             );
             // Smaller value for trail orbs
-            dropOrb.value = 10;
+            dropOrb.value = 8;
             dropOrb.size = Math.sqrt(dropOrb.value) * 1.5;
             this.orbs.set(dropOrb.id, dropOrb);
             spawnedOrbs.push(dropOrb);
@@ -282,13 +286,20 @@ class GameRoom {
       }
     });
 
-    // Collect orbs — gather deletions first, then apply
+    // Collect orbs and handle expiration
     const deletedOrbIds = [];
-    allSnakes.forEach(snake => {
-      if (snake.dead) return;
-      const r = snake.size * 1.5;
-      this.orbs.forEach((orb, orbId) => {
-        if (deletedOrbIds.includes(orbId)) return; // already collected this tick
+    const now_time = Date.now();
+    this.orbs.forEach((orb, orbId) => {
+      // Cleanup expired trail orbs
+      if (orb.isTrail && orb.expiresAt < now_time) {
+        deletedOrbIds.push(orbId);
+        return;
+      }
+
+      // Check for collection by any snake
+      for (const snake of allSnakes) {
+        if (snake.dead) continue;
+        const r = snake.size * 1.6;
         if (distSq(snake.x, snake.y, orb.x, orb.y) < r * r) {
           snake.score += orb.value;
           if (orb.isPowerup) {
@@ -298,8 +309,9 @@ class GameRoom {
             this.events.push({ type: 'powerup', playerId: snake.id, orbType: orb.type });
           }
           deletedOrbIds.push(orbId);
+          break; // This orb is gone, move to next orb
         }
-      });
+      }
     });
 
     // Apply deletions and respawn
