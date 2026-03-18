@@ -25,21 +25,21 @@ const BOT_NAMES = [
 const ORB_COLORS = ['#52b788', '#e07a5f', '#1a6fa8', '#f4d03f', '#9b59b6'];
 
 class Orb {
-  constructor() {
+  constructor(x = null, y = null, color = null) {
     this.id = Math.random().toString(36).substring(2, 9);
-    this.x = randomRange(100, WORLD_SIZE - 100);
-    this.y = randomRange(100, WORLD_SIZE - 100);
+    this.x = x !== null ? x : randomRange(100, WORLD_SIZE - 100);
+    this.y = y !== null ? y : randomRange(100, WORLD_SIZE - 100);
     this.value = randomRange(10, 30);
     this.size = Math.sqrt(this.value) * 1.5;
-    this.color = ORB_COLORS[Math.floor(Math.random() * ORB_COLORS.length)];
+    this.color = color || ORB_COLORS[Math.floor(Math.random() * ORB_COLORS.length)];
     this.isPowerup = false;
     this.collected = false;
   }
 }
 
 class PowerOrb extends Orb {
-  constructor(type) {
-    super();
+  constructor(type, x = null, y = null) {
+    super(x, y);
     this.isPowerup = true;
     this.type = type; // 0=shield, 1=speed, 2=magnet, 3=coin
     const typeColors = ['#00b4d8', '#f4d03f', '#9b59b6', '#ffd700'];
@@ -256,10 +256,30 @@ class GameRoom {
     const allSnakes = [...this.players.values(), ...this.bots];
 
     // Update snakes
+    const spawnedOrbs = [];
     allSnakes.forEach(snake => {
       if (snake.dead) return;
       const input = this.inputs.get(snake.id);
       snake.update(dt, input);
+      
+      // Drops for boost trail
+      if (snake.isBoosting && snake.boostEnergy > 0 && snake.score > 150) {
+        if (Math.random() < 10 * dt) {
+          const tail = snake.body[snake.body.length - 1];
+          if (tail) {
+            const dropOrb = new Orb(
+              tail.x + (Math.random() - 0.5) * 20,
+              tail.y + (Math.random() - 0.5) * 20,
+              snake.color
+            );
+            // Smaller value for trail orbs
+            dropOrb.value = 10;
+            dropOrb.size = Math.sqrt(dropOrb.value) * 1.5;
+            this.orbs.set(dropOrb.id, dropOrb);
+            spawnedOrbs.push(dropOrb);
+          }
+        }
+      }
     });
 
     // Collect orbs — gather deletions first, then apply
@@ -297,6 +317,14 @@ class GameRoom {
     // Emit direct orbDelete event so clients remove them immediately
     if (deletedOrbIds.length > 0) {
       this.io.to(this.id).emit('orbDelete', deletedOrbIds);
+    }
+
+    // Broadcast newly spawned boost trail orbs to everyone
+    if (spawnedOrbs.length > 0) {
+      this.io.to(this.id).emit('orbSpawn', spawnedOrbs.map(o => ({
+        id: o.id, x: Math.round(o.x), y: Math.round(o.y), 
+        color: o.color, size: o.size, isPowerup: o.isPowerup
+      })));
     }
 
     // Collision detection (head vs body)
