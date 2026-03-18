@@ -31,15 +31,15 @@ const COLORS = {
 
 // --- NOVO: Configurações das Skins ---
 const SKINS = [
-  { id: 'classic', name: 'Ciclope Verde', color: '#39ff14', type: 'cyclops', cost: 0 },
-  { id: 'lula_red', name: 'Lula Clássica', color: '#ef4444', type: 'lula', cost: 0 }, 
-  { id: 'blue', name: 'Abissal Azul', color: '#00b4d8', type: 'cyclops', cost: 0 },
-  { id: 'dragon', name: 'Dragão Negro', color: '#1a1a1a', type: 'dragon', cost: 50 },
-  { id: 'chain', name: 'Corrente Metálica (Rara)', color: '#9ca3af', type: 'chain', cost: 150 }, 
-  { id: 'skeleton', name: 'Esqueleto (Raro)', color: '#e0e0e0', type: 'skeleton', cost: 150 },
-  { id: 'neon_dragon', name: 'Dragão Neon', color: '#00ffff', type: 'dragon_neon', cost: 200 },
-  { id: 'brazil_seahorse', name: 'Cavalo Marinho BR', color: '#009c3b', type: 'seahorse', cost: 300 }, // NOVA SKIN BRASIL!
-  { id: 'neon_skeleton', name: 'Lich Neon (Épico)', color: '#ff00ff', type: 'skeleton_neon', cost: 500 }
+  { id: 'classic', name: 'Ciclope Verde', rarity: 'comum', color: '#39ff14', type: 'cyclops', cost: 0 },
+  { id: 'lula_red', name: 'Lula Clássica', rarity: 'comum', color: '#ef4444', type: 'lula', cost: 0 }, 
+  { id: 'blue', name: 'Abissal Azul', rarity: 'comum', color: '#00b4d8', type: 'cyclops', cost: 0 },
+  { id: 'dragon', name: 'Dragão Negro', rarity: 'raro', color: '#1a1a1a', type: 'dragon', cost: 50 },
+  { id: 'chain', name: 'Corrente Metálica', rarity: 'raro', color: '#9ca3af', type: 'chain', cost: 150 }, 
+  { id: 'skeleton', name: 'Esqueleto', rarity: 'raro', color: '#e0e0e0', type: 'skeleton', cost: 150 },
+  { id: 'neon_dragon', name: 'Dragão Neon', rarity: 'épico', color: '#00ffff', type: 'dragon_neon', cost: 200 },
+  { id: 'brazil_seahorse', name: 'Cavalo Marinho BR', rarity: 'raro', color: '#009c3b', type: 'seahorse', cost: 300 },
+  { id: 'neon_skeleton', name: 'Lich Neon', rarity: 'épico', color: '#ff00ff', type: 'skeleton_neon', cost: 500 }
 ];
 
 const BOT_NAMES = [
@@ -1013,7 +1013,10 @@ export default function OceanApp() {
     s.audio.init();
     s.audio.enabled = soundEnabled;
     s.snakes = []; s.orbs = []; s.particles = []; s.spatialHash.clear(); s.eventQueue = []; s.lastKingId = null;
-    const finalName = playerName.trim() === '' ? 'Anônimo' : playerName.trim();
+    const animalNames = ['Tubarão', 'Arraia', 'Peixe-Espada', 'Orca', 'Kraken', 'Marlin', 'Baleia', 'Golfinho'];
+    const randomId = Math.floor(100 + Math.random() * 899);
+    const defaultName = `${animalNames[Math.floor(Math.random() * animalNames.length)]} #${randomId}`;
+    const finalName = playerName.trim() === '' ? defaultName : playerName.trim();
     const chosenSkin = SKINS[selectedSkinIndex];
     const pos = getSafeSpawnPosition(s.snakes, WORLD_SIZE);
     s.player = new Snake(pos.x, pos.y, finalName, true, chosenSkin);
@@ -1370,13 +1373,7 @@ export default function OceanApp() {
               <div className="absolute bottom-8 left-8 w-32 h-32 bg-white/10 rounded-full border-2 border-white/20 backdrop-blur-md z-50 pointer-events-auto shadow-[0_0_20px_rgba(255,255,255,0.1)] touch-none" onTouchStart={handleJoystickStart} onTouchMove={handleJoystickMove} onTouchEnd={handleJoystickEnd} onContextMenu={(e) => e.preventDefault()}>
                 <div className="absolute top-1/2 left-1/2 w-14 h-14 bg-white/50 rounded-full shadow-lg transform -translate-x-1/2 -translate-y-1/2 border border-white/80 transition-transform duration-75" id="joystick-knob"></div>
               </div>
-              {/* Área de toque expandida para o botão de Boost */}
-              <div 
-                className="absolute bottom-4 right-4 w-[120px] h-[120px] flex items-center justify-center z-50 pointer-events-auto touch-none"
-                onTouchStart={(e) => { e.stopPropagation(); if (state.current.player) state.current.player.isBoosting = true; }} 
-                onTouchEnd={(e) => { e.stopPropagation(); if (state.current.player) state.current.player.isBoosting = false; }}
-                onContextMenu={(e) => e.preventDefault()}
-              >
+              <div className="absolute bottom-4 right-4 w-[120px] h-[120px] flex items-center justify-center z-50 pointer-events-auto touch-none" onTouchStart={(e) => { e.stopPropagation(); if (state.current.player) state.current.player.isBoosting = true; }} onTouchEnd={(e) => { e.stopPropagation(); if (state.current.player) state.current.player.isBoosting = false; }} onContextMenu={(e) => e.preventDefault()} >
                 <div className="w-[80px] h-[80px] bg-yellow-500/30 rounded-full border-2 border-yellow-400 backdrop-blur-md flex items-center justify-center shadow-[0_0_20px_rgba(250,204,21,0.4)] active:bg-yellow-500/60 active:scale-95 transition-all pointer-events-none">
                   <span className="text-4xl translate-x-[2px] translate-y-[2px]">⚡</span>
                 </div>
@@ -1388,6 +1385,7 @@ export default function OceanApp() {
           </button>
         </>
       )}
+
       {isMobile && isPortrait && (
         <div className="fixed inset-0 bg-black z-[100] flex flex-col items-center justify-center text-white text-center p-6 sm:hidden anim-fade-in">
           <div className="w-24 h-24 mb-6 animate-bounce">
@@ -1398,107 +1396,90 @@ export default function OceanApp() {
             </svg>
           </div>
           <h2 className="text-2xl font-bold mb-2 uppercase tracking-widest">Gire o Aparelho</h2>
-          <p className="text-gray-400 text-sm max-w-[250px]">Para a melhor experiência em ocean.io, jogue      {gameState !== 'PLAYING' && (
-        <div className="absolute inset-0 bg-[#0f172a]/95 flex flex-col items-center justify-center z-50 font-sans text-white backdrop-blur-md overflow-y-auto pt-10 pb-10 anim-fade-in">
-          <div className="absolute top-4 right-4 bg-black/40 border border-yellow-500/50 px-4 py-2 rounded-full text-yellow-400 font-bold text-lg drop-shadow-[0_0_8px_rgba(250,204,21,0.3)] flex items-center gap-2">🪙 {coins}</div>
-          
-          {gameState === 'GAMEOVER' ? (
-            <div className="flex flex-col items-center justify-center anim-pop-in px-4 text-center max-w-lg mb-12">
-              <h2 className="text-4xl md:text-6xl font-black text-red-500 mb-4 drop-shadow-[0_0_15px_rgba(239,68,68,0.4)] uppercase tracking-tighter italic">Você foi Devorado</h2>
-              <div className="bg-white/5 border border-white/10 p-6 md:p-8 rounded-3xl backdrop-blur-sm shadow-2xl w-full mb-6">
-                <p className="text-gray-400 text-sm uppercase font-bold tracking-widest mb-1">Comprimento Final</p>
-                <p className="text-5xl md:text-6xl font-black text-white mb-6 tracking-tighter">{Math.floor(state.current.finalScore/10)}</p>
-                <div className="flex justify-around items-center pt-6 border-t border-white/10">
-                  <div className="text-center">
-                    <p className="text-xs text-gray-500 uppercase font-bold mb-1">Moedas</p>
-                    <p className="text-2xl font-black text-yellow-400">+ {state.current.earnedCoins} 🪙</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xs text-gray-500 uppercase font-bold mb-1">Melhor</p>
-                    <p className="text-2xl font-black text-white">{highScore}</p>
-                  </div>
-                </div>
-              </div>
-              <button 
-                onClick={() => setGameState('START')} 
-                className="bg-purple-600 hover:bg-purple-500 text-white font-black py-4 px-12 rounded-full text-xl shadow-[0_5px_0_#4c1d95] active:translate-y-[5px] active:shadow-none transition-all w-full md:w-auto uppercase tracking-widest"
-              >
-                Voltar ao Lobby
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center anim-fade-in">
-              <Logo className="w-24 h-24 md:w-40 md:h-40 mb-2 drop-shadow-[0_0_20px_rgba(168,85,247,0.4)]" />
-              <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-2 md:mb-4 text-center" style={{ background: 'linear-gradient(to right, #4ade80, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 0 15px rgba(168, 85, 247, 0.3))' }}>ocean.io</h1>
-              <p className="text-gray-500 text-xs md:text-sm font-bold uppercase tracking-[0.2em] mb-8 md:mb-12 px-4 text-center">Sobreviva no Abismo</p>
-              
-              <div className="flex items-center gap-4 md:gap-10 mb-8 scale-90 md:scale-100">
-                <button onClick={() => setSelectedSkinIndex((prev) => (prev === 0 ? SKINS.length - 1 : prev - 1))} className="text-5xl text-gray-600 hover:text-white transition-all transform hover:scale-110 cursor-pointer">&lt;</button>
-                
-                <div className="flex flex-col items-center justify-center w-36 md:w-44">
-                  <div className="w-24 h-24 md:w-32 md:h-32 rounded-full mb-4 shadow-[0_15px_30px_rgba(0,0,0,0.6)] flex items-center justify-center relative overflow-hidden transition-all duration-300 border-4" style={{ background: SKINS[selectedSkinIndex].type.startsWith('dragon') ? 'radial-gradient(circle, #333 0%, #000 100%)' : (SKINS[selectedSkinIndex].type === 'chain' ? 'radial-gradient(circle, #4b5563 0%, #111827 100%)' : `radial-gradient(circle, ${SKINS[selectedSkinIndex].color} 0%, rgba(0,0,0,0.95) 100%)`), borderColor: SKINS[selectedSkinIndex].color, boxShadow: SKINS[selectedSkinIndex].id.includes('neon') ? `0 0 25px ${SKINS[selectedSkinIndex].color}44` : 'none' }}>
-                    {SKINS[selectedSkinIndex].type.startsWith('dragon') && <div className="absolute flex gap-2"><div className="w-4 h-1 rotate-[20deg]" style={{ backgroundColor: SKINS[selectedSkinIndex].color, boxShadow: `0 0 8px ${SKINS[selectedSkinIndex].color}` }}></div><div className="w-4 h-1 -rotate-[20deg]" style={{ backgroundColor: SKINS[selectedSkinIndex].color, boxShadow: `0 0 8px ${SKINS[selectedSkinIndex].color}` }}></div></div>}
-                    {SKINS[selectedSkinIndex].type.startsWith('skeleton') && <div className="absolute flex flex-col items-center justify-center"><div className="w-10 h-9 rounded-full relative" style={{ backgroundColor: SKINS[selectedSkinIndex].color, boxShadow: SKINS[selectedSkinIndex].id.includes('neon') ? `0 0 10px ${SKINS[selectedSkinIndex].color}` : 'none' }}><div className="absolute w-3 h-3 bg-black rounded-full left-1.5 top-2.5"></div><div className="absolute w-3 h-3 bg-black rounded-full right-1.5 top-2.5"></div><div className="absolute w-2 h-1.5 bg-black left-4 bottom-1 rounded-sm"></div></div></div>}
-                    {SKINS[selectedSkinIndex].type === 'cyclops' && <div className="w-6 h-6 bg-[#00b4d8] rounded-full flex items-center justify-center shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]"><div className="w-3 h-3 bg-black rounded-full ml-1"></div></div>}
-                    {SKINS[selectedSkinIndex].type === 'chain' && <div className="absolute flex items-center justify-center transform -rotate-45"><div className="w-12 h-6 border-[4px] border-[#9ca3af] rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.8)] flex items-center justify-center"><div className="w-6 h-12 border-[4px] border-[#d1d5db] rounded-full absolute shadow-[0_2px_4px_rgba(0,0,0,0.8)]"></div></div></div>}
-                    {SKINS[selectedSkinIndex].type === 'lula' && <div className="absolute flex flex-col gap-1 translate-x-2"><div className="w-5 h-5 bg-white rounded-full border-[2px] border-black flex items-center justify-end relative -top-1 left-2"><div className="w-2 h-2 bg-black rounded-full mr-0.5"></div></div><div className="w-5 h-5 bg-white rounded-full border-[2px] border-black flex items-center justify-end relative top-1 left-2"><div className="w-2 h-2 bg-black rounded-full mr-0.5"></div></div></div>}
-                    {SKINS[selectedSkinIndex].type === 'seahorse' && <div className="absolute flex flex-col items-center justify-center scale-90 md:scale-100"><div className="absolute w-8 h-8 bg-[#002776] -top-6 rotate-45 rounded-sm"></div><div className="absolute w-12 h-4 bg-[#ffdf00] rounded-full left-4"></div><div className="absolute w-10 h-10 bg-[#009c3b] rounded-full shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]"></div><div className="absolute w-5 h-5 bg-white rounded-full top-1 right-1 flex items-center justify-end border-2 border-transparent"><div className="w-2.5 h-2.5 bg-black rounded-full mr-0.5"></div></div></div>}
-                    {!isSkinUnlocked && <div className="absolute inset-0 bg-black/80 flex items-center justify-center backdrop-blur-[2px] select-none"><span className="text-4xl filter drop-shadow-[0_0_10px_rgba(0,0,0,1)]">🔒</span></div>}
-                  </div>
-                  <span className="font-black text-sm md:text-base tracking-widest uppercase transition-colors text-center px-4 py-1 rounded bg-black/30" style={{ color: SKINS[selectedSkinIndex].color === '#1a1a1a' ? '#fff' : SKINS[selectedSkinIndex].color }}>{SKINS[selectedSkinIndex].name}</span>
-                </div>
-                
-                <button onClick={() => setSelectedSkinIndex((prev) => (prev === SKINS.length - 1 ? 0 : prev + 1))} className="text-5xl text-gray-600 hover:text-white transition-all transform hover:scale-110 cursor-pointer">&gt;</button>
-              </div>
-
-              <div className="flex flex-col gap-4 w-72 md:w-80">
-                <input 
-                  type="text" 
-                  maxLength={16} 
-                  value={playerName} 
-                  onChange={(e) => setPlayerName(e.target.value)} 
-                  placeholder="Seu Nickname" 
-                  onKeyDown={(e) => { if (e.key === 'Enter' && isSkinUnlocked) startGame(); }} 
-                  className="bg-white/5 text-white placeholder-gray-600 px-6 py-4 rounded-2xl text-lg w-full text-center border-2 border-white/10 focus:border-purple-500/50 outline-none transition-all focus:bg-white/10" 
-                />
-                
-                {isSkinUnlocked ? (
-                  <button 
-                    onClick={startGame} 
-                    className="bg-[#4ade80] hover:bg-[#22c55e] text-black font-black py-4 px-12 rounded-full text-2xl shadow-[0_5px_0_#166534] active:translate-y-[5px] active:shadow-none transition-all uppercase tracking-tighter"
-                  >
-                    Entrar na Arena
-                  </button>
-                ) : (
-                  <button 
-                    onClick={handleUnlock} 
-                    className="bg-yellow-500 hover:bg-yellow-400 text-black font-black py-4 px-12 rounded-full text-xl shadow-[0_5px_0_#854d0e] active:translate-y-[5px] active:shadow-none transition-all flex items-center justify-center gap-2 uppercase tracking-tight"
-                  >
-                    Desbloquear <span className="bg-black/20 px-2 py-0.5 rounded-lg text-sm">{SKINS[selectedSkinIndex].cost} 🪙</span>
-                  </button>
-                )}
-
-                {highScore > 0 && (
-                  <div className="mt-4 flex flex-col items-center gap-1 opacity-60">
-                    <p className="text-[10px] uppercase font-bold text-gray-400 tracking-[0.3em]">Recorde Pessoal</p>
-                    <p className="text-xl font-black text-white">{highScore}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-          
-          <div className="absolute bottom-6 text-[10px] md:text-xs text-gray-600 uppercase font-black tracking-[0.5em] pointer-events-none px-6 text-center">
-            {isMobile ? "Use o Joystick e o Botão de Raio" : "Mouse para guiar | Clique para Turbo"}
-          </div>
+          <p className="text-gray-400 text-sm max-w-[250px]">Para a melhor experiência em ocean.io, jogue com o celular deitado.</p>
         </div>
       )}
-on>
+
+      {gameState !== 'PLAYING' && (
+        <div className="absolute inset-0 bg-[#0f172a]/95 flex flex-col items-center justify-center z-50 font-sans text-white backdrop-blur-md overflow-hidden anim-fade-in p-4">
+          <div className="absolute top-2 md:top-4 right-4 bg-black/40 border border-yellow-500/50 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-yellow-400 font-bold text-base md:text-lg drop-shadow-[0_0_8px_rgba(250,204,21,0.3)] flex items-center gap-2 z-10">🪙 {coins}</div>
+          
+          <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12 w-full max-w-5xl h-full py-2">
+            {gameState === 'GAMEOVER' ? (
+              <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-16 anim-pop-in px-4 w-full max-w-5xl">
+                <div className="flex flex-col items-center md:items-start text-center md:text-left max-w-md">
+                  <h2 className="text-2xl md:text-5xl font-black text-red-500 mb-1 md:mb-4 drop-shadow-[0_0_15px_rgba(239,68,68,0.4)] uppercase tracking-tighter italic">Você foi Devorado</h2>
+                  <div className="bg-white/5 border border-white/10 p-4 md:p-6 rounded-2xl md:rounded-3xl backdrop-blur-sm shadow-2xl w-full">
+                    <p className="text-gray-400 text-[10px] md:text-xs uppercase font-bold tracking-widest mb-1">Comprimento Final</p>
+                    <p className="text-3xl md:text-5xl font-black text-white mb-2 md:mb-4 tracking-tighter">{Math.floor(state.current.finalScore/10)}</p>
+                    <div className="flex justify-around items-center pt-2 md:pt-4 border-t border-white/10 gap-4">
+                      <div className="text-center md:text-left">
+                        <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Moedas</p>
+                        <p className="text-lg md:text-2xl font-black text-yellow-400">+ {state.current.earnedCoins} 🪙</p>
+                      </div>
+                      <div className="text-center md:text-left">
+                        <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Melhor</p>
+                        <p className="text-lg md:text-2xl font-black text-white">{highScore}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <button onClick={() => setGameState('START')} className="bg-purple-600 hover:bg-purple-500 text-white font-black py-3 md:py-5 px-10 md:px-14 rounded-full text-lg md:text-2xl shadow-[0_5px_0_#4c1d95] active:translate-y-[5px] active:shadow-none transition-all w-full md:w-auto uppercase tracking-widest shrink-0"> Voltar ao Lobby </button>
+              </div>
             ) : (
-              <button onClick={handleUnlock} disabled={coins < SKINS[selectedSkinIndex].cost} className={`font-bold py-3 px-8 md:px-12 rounded-full text-lg md:text-xl transition-all mt-2 w-64 md:w-auto ${coins >= SKINS[selectedSkinIndex].cost ? 'bg-[#8b5cf6] hover:bg-[#7c3aed] text-white shadow-[0_5px_0_#5b21b6] active:translate-y-[5px] active:shadow-none cursor-pointer' : 'bg-gray-600 text-gray-400 cursor-not-allowed shadow-[0_5px_0_#374151]'}`}>Desbloquear (🪙 {SKINS[selectedSkinIndex].cost})</button>
+              <>
+                {/* Branding Column / Row */}
+                <div className="flex flex-col items-center text-center">
+                  <Logo className="hidden lg:block w-16 h-16 md:w-32 md:h-32 mb-1 md:mb-2 drop-shadow-[0_0_20px_rgba(168,85,247,0.4)]" />
+                  <h1 className="text-3xl md:text-6xl font-black tracking-tighter mb-0 md:mb-1" style={{ background: 'linear-gradient(to right, #4ade80, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 0 15px rgba(168, 85, 247, 0.3))' }}>ocean.io</h1>
+                  <p className="text-gray-500 text-[9px] md:text-xs font-bold uppercase tracking-[0.2em] mb-1 md:mb-2 px-4">Sobreviva no Abismo</p>
+                  <div className="mt-2 md:mt-4 text-[8px] md:text-xs text-gray-600 uppercase font-black tracking-[0.2em] md:tracking-[0.5em] pointer-events-none px-6">
+                    {isMobile ? "Use o Joystick e o Botão de Raio" : "Mouse para guiar | Clique para Turbo"}
+                  </div>
+                </div>
+
+                {/* Controls Column */}
+                <div className="flex flex-col items-center anim-fade-in w-64 md:w-[400px]">
+                  <div className="flex items-center gap-4 md:gap-8 mb-2 md:mb-4 scale-75 md:scale-90">
+                    <button onClick={() => setSelectedSkinIndex((prev) => (prev === 0 ? SKINS.length - 1 : prev - 1))} className="text-3xl md:text-5xl text-gray-400 hover:text-white transition-all transform hover:scale-110 cursor-pointer">&lt;</button>
+                    <div className="flex flex-col items-center justify-center w-24 md:w-44">
+                      <div className="w-16 h-16 md:w-32 md:h-32 rounded-full mb-1 md:mb-4 shadow-[0_8px_16px_rgba(0,0,0,0.6)] flex items-center justify-center relative overflow-hidden transition-all duration-300 border-4" style={{ background: SKINS[selectedSkinIndex].type.startsWith('dragon') ? 'radial-gradient(circle, #333 0%, #000 100%)' : (SKINS[selectedSkinIndex].type === 'chain' ? 'radial-gradient(circle, #4b5563 0%, #111827 100%)' : `radial-gradient(circle, ${SKINS[selectedSkinIndex].color} 0%, rgba(0,0,0,0.95) 100%)`), borderColor: SKINS[selectedSkinIndex].color, boxShadow: SKINS[selectedSkinIndex].id.includes('neon') ? `0 0 25px ${SKINS[selectedSkinIndex].color}44` : 'none' }}>
+                        {SKINS[selectedSkinIndex].type.startsWith('dragon') && <div className="absolute flex gap-1 md:gap-2"><div className="w-2 md:w-4 h-0.5 md:h-1 rotate-[20deg]" style={{ backgroundColor: SKINS[selectedSkinIndex].color, boxShadow: `0 0 8px ${SKINS[selectedSkinIndex].color}` }}></div><div className="w-2 md:w-4 h-0.5 md:h-1 -rotate-[20deg]" style={{ backgroundColor: SKINS[selectedSkinIndex].color, boxShadow: `0 0 8px ${SKINS[selectedSkinIndex].color}` }}></div></div>}
+                        {SKINS[selectedSkinIndex].type.startsWith('skeleton') && <div className="absolute flex flex-col items-center justify-center scale-50 md:scale-100"><div className="w-10 h-9 rounded-full relative" style={{ backgroundColor: SKINS[selectedSkinIndex].color, boxShadow: SKINS[selectedSkinIndex].id.includes('neon') ? `0 0 10px ${SKINS[selectedSkinIndex].color}` : 'none' }}><div className="absolute w-3 h-3 bg-black rounded-full left-1.5 top-2.5"></div><div className="absolute w-3 h-3 bg-black rounded-full right-1.5 top-2.5"></div><div className="absolute w-2 h-1.5 bg-black left-4 bottom-1 rounded-sm"></div></div></div>}
+                        {SKINS[selectedSkinIndex].type === 'cyclops' && <div className="w-4 md:w-6 h-4 md:h-6 bg-[#00b4d8] rounded-full flex items-center justify-center shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]"><div className="w-2 md:w-3 h-2 md:h-3 bg-black rounded-full ml-1"></div></div>}
+                        {SKINS[selectedSkinIndex].type === 'chain' && <div className="absolute flex items-center justify-center transform -rotate-45 scale-50 md:scale-100"><div className="w-12 h-6 border-[4px] border-[#9ca3af] rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.8)] flex items-center justify-center"><div className="w-6 h-12 border-[4px] border-[#d1d5db] rounded-full absolute shadow-[0_2px_4px_rgba(0,0,0,0.8)]"></div></div></div>}
+                        {SKINS[selectedSkinIndex].type === 'lula' && <div className="absolute flex flex-col gap-1 translate-x-1 md:translate-x-2 scale-50 md:scale-100"><div className="w-5 h-5 bg-white rounded-full border-[2px] border-black flex items-center justify-end relative -top-1 left-2"><div className="w-2 h-2 bg-black rounded-full mr-0.5"></div></div><div className="w-5 h-5 bg-white rounded-full border-[2px] border-black flex items-center justify-end relative top-1 left-2"><div className="w-2 h-2 bg-black rounded-full mr-0.5"></div></div></div>}
+                        {SKINS[selectedSkinIndex].type === 'seahorse' && <div className="absolute flex flex-col items-center justify-center scale-50 md:scale-100"><div className="absolute w-8 h-8 bg-[#002776] -top-6 rotate-45 rounded-sm"></div><div className="absolute w-12 h-4 bg-[#ffdf00] rounded-full left-4"></div><div className="absolute w-10 h-10 bg-[#009c3b] rounded-full shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]"></div><div className="absolute w-5 h-5 bg-white rounded-full top-1 right-1 flex items-center justify-end border-2 border-transparent"><div className="w-2.5 h-2.5 bg-black rounded-full mr-0.5"></div></div></div>}
+                        {!isSkinUnlocked && <div className="absolute inset-0 bg-black/80 flex items-center justify-center backdrop-blur-[2px] select-none"><span className="text-xl md:text-3xl filter drop-shadow-[0_0_10px_rgba(0,0,0,1)]">🔒</span></div>}
+                      </div>
+                      <div className="flex flex-col items-center gap-1 w-full">
+                        <span className={`text-[8px] md:text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${SKINS[selectedSkinIndex].rarity === 'épico' ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-[0_0_10px_rgba(168,85,247,0.5)]' : (SKINS[selectedSkinIndex].rarity === 'raro' ? 'bg-yellow-500 text-black' : 'bg-white/10 text-gray-400')}`}>
+                          {SKINS[selectedSkinIndex].rarity}
+                        </span>
+                        <span className="font-black text-[9px] md:text-base tracking-widest uppercase transition-colors text-center px-4 py-0.5 rounded bg-black/30 w-full" style={{ color: SKINS[selectedSkinIndex].color === '#1a1a1a' ? '#fff' : SKINS[selectedSkinIndex].color }}>{SKINS[selectedSkinIndex].name}</span>
+                      </div>
+                    </div>
+                    <button onClick={() => setSelectedSkinIndex((prev) => (prev === SKINS.length - 1 ? 0 : prev + 1))} className="text-3xl md:text-5xl text-gray-400 hover:text-white transition-all transform hover:scale-110 cursor-pointer">&gt;</button>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5 md:gap-4 w-full px-4">
+                    <input type="text" maxLength={16} value={playerName} onChange={(e) => setPlayerName(e.target.value)} placeholder="Seu Nickname" onKeyDown={(e) => { if (e.key === 'Enter' && isSkinUnlocked) startGame(); }} className="bg-white/5 text-white placeholder-gray-600 px-3 py-1.5 md:px-6 md:py-4 rounded-lg md:rounded-2xl text-xs md:text-lg w-full text-center border-2 border-white/10 focus:border-purple-500/50 outline-none transition-all focus:bg-white/10" />
+                    {isSkinUnlocked ? (
+                      <button onClick={startGame} className="bg-[#4ade80] hover:bg-[#22c55e] text-black font-black py-2 md:py-3.5 px-8 md:px-12 rounded-full text-sm md:text-xl shadow-[0_4px_0_#166534] active:translate-y-[4px] active:shadow-none transition-all uppercase tracking-tighter"> Entrar na Arena </button>
+                    ) : (
+                      <button onClick={handleUnlock} className="bg-yellow-500 hover:bg-yellow-400 text-black font-black py-2 md:py-3.5 px-8 md:px-12 rounded-full text-xs md:text-lg shadow-[0_4px_0_#854d0e] active:translate-y-[4px] active:shadow-none transition-all flex items-center justify-center gap-2 uppercase tracking-tight"> Desbloquear <span className="bg-black/20 px-2 py-0.5 rounded-lg text-xs">{SKINS[selectedSkinIndex].cost} 🪙</span> </button>
+                    )}
+                    {highScore > 0 && (
+                      <div className="flex flex-col items-center gap-0 opacity-60">
+                        <p className="text-[7px] md:text-[9px] uppercase font-bold text-gray-500 tracking-[0.2em]">Recorde Pessoal</p>
+                        <p className="text-xs md:text-lg font-black text-white">{highScore}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
             )}
           </div>
-          <div className="absolute bottom-6 text-[#4b5563] text-xs text-center flex flex-col md:flex-row gap-2 md:gap-8"><span className="hidden md:inline">🖱️ Siga o Mouse | 👆 Segure para Acelerar</span><span className="md:hidden">🕹️ Use o Joystick Virtual e o Botão de Acelerar</span></div>
         </div>
       )}
       <style dangerouslySetInnerHTML={{__html: `
