@@ -12,3 +12,12 @@ body {
   -webkit-user-select: none;
   background-color: #0f172a;
 }
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.anim-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}

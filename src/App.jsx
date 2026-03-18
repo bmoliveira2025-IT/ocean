@@ -898,6 +898,7 @@ export default function OceanApp() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [powerups, setPowerups] = useState({ shield: 0, speed: 0, magnet: 0 });
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [isPortrait, setIsPortrait] = useState(false);
 
   const [coins, setCoins] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -1004,6 +1005,19 @@ export default function OceanApp() {
       spawnOrb(randomRange(0, WORLD_SIZE), randomRange(0, WORLD_SIZE), 0, true, type);
     }
     for (let i = 0; i < 40; i++) spawnBot();
+    
+    // Solicitando Tela Cheia no mobile
+    if (isMobile) {
+      const doc = document.documentElement;
+      if (doc.requestFullscreen) doc.requestFullscreen();
+      else if (doc.webkitRequestFullscreen) doc.webkitRequestFullscreen();
+      else if (doc.msRequestFullscreen) doc.msRequestFullscreen();
+      
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch(() => {});
+      }
+    }
+
     setGameState('PLAYING'); setScore(500); setPowerups({ shield: 0, speed: 0, magnet: 0 });
     s.lastTime = performance.now();
     if (engineRef.current) cancelAnimationFrame(engineRef.current);
@@ -1248,6 +1262,21 @@ export default function OceanApp() {
   };
 
   useEffect(() => {
+    const checkOrientation = () => {
+      if (isMobile) {
+        setIsPortrait(window.innerHeight > window.innerWidth);
+      }
+    };
+    checkOrientation();
+    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('orientationchange', checkOrientation);
+    return () => {
+      window.removeEventListener('resize', checkOrientation);
+      window.removeEventListener('orientationchange', checkOrientation);
+    };
+  }, [isMobile]);
+
+  useEffect(() => {
     const handleResize = () => { if (canvasRef.current) { canvasRef.current.width = window.innerWidth; canvasRef.current.height = window.innerHeight; } };
     window.addEventListener('resize', handleResize); handleResize();
     return () => window.removeEventListener('resize', handleResize);
@@ -1319,6 +1348,19 @@ export default function OceanApp() {
             {soundEnabled ? '🔊' : '🔇'}
           </button>
         </>
+      )}
+      {isMobile && isPortrait && (
+        <div className="fixed inset-0 bg-black z-[100] flex flex-col items-center justify-center text-white text-center p-6 sm:hidden anim-fade-in">
+          <div className="w-24 h-24 mb-6 animate-bounce">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full text-yellow-400">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+              <path d="M12 18h.01" />
+              <path d="M17 2l-3 3 3 3" className="animate-pulse" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold mb-2 uppercase tracking-widest">Gire o Aparelho</h2>
+          <p className="text-gray-400 text-sm max-w-[250px]">Para a melhor experiência em ocean.io, jogue com o celular deitado.</p>
+        </div>
       )}
       {gameState !== 'PLAYING' && (
         <div className="absolute inset-0 bg-[#161a22] flex flex-col items-center justify-center z-50 font-sans text-white">
