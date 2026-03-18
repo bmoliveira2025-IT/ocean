@@ -19,9 +19,9 @@ const io = new Server(httpServer, {
     origin: '*',
     methods: ['GET', 'POST']
   },
-  // Otimizações de performance
-  pingInterval: 10000,
-  pingTimeout: 15000
+  // Otimizações de performance (Tolerância alta para a AMD Micro)
+  pingInterval: 25000,
+  pingTimeout: 60000
 });
 
 const rooms = new Map(); // roomId → GameRoom
