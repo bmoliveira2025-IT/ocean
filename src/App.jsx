@@ -991,6 +991,31 @@ export default function OceanApp() {
   }, []);
 
   useEffect(() => {
+    if (!isMobile) return;
+    const requestFullscreenLandscape = () => {
+      const isLandscape = window.innerWidth > window.innerHeight;
+      if (isLandscape) {
+        const doc = document.documentElement;
+        if (doc.requestFullscreen && !document.fullscreenElement) {
+          doc.requestFullscreen().catch(() => {});
+        } else if (doc.webkitRequestFullscreen && !document.webkitFullscreenElement) {
+          doc.webkitRequestFullscreen();
+        }
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(() => {});
+        }
+      }
+    };
+    window.addEventListener('orientationchange', requestFullscreenLandscape);
+    window.addEventListener('resize', requestFullscreenLandscape);
+    requestFullscreenLandscape(); // check immediately
+    return () => {
+      window.removeEventListener('orientationchange', requestFullscreenLandscape);
+      window.removeEventListener('resize', requestFullscreenLandscape);
+    };
+  }, [isMobile]);
+
+  useEffect(() => {
     const s = state.current;
     [COLORS.green, COLORS.coral, COLORS.blue, COLORS.yellow, COLORS.purple, COLORS.danger, COLORS.neonGreen, COLORS.turquoise, COLORS.neonCyan, COLORS.neonPink, COLORS.boneWhite, COLORS.classicRed, COLORS.silver, COLORS.brGreen, COLORS.brYellow, COLORS.brBlue].forEach(color => {
       const oc = document.createElement('canvas');
