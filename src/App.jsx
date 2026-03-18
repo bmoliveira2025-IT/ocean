@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import Logo from './components/Logo';
+import { qualityManager } from './utils/QualityManager';
 
 // ==========================================
 // CONSTANTS & CONFIG
@@ -85,8 +86,10 @@ const getSafeSpawnPosition = (snakes, worldSize, margin = 500, minDistance = 100
 class AudioEngine {
   constructor() {
     this.ctx = null;
-    this.enabled = true;
+    this.bgmEnabled = true;
+    this.sfxEnabled = true;
     this.bgmGain = null;
+    this.sfxGain = null;
   }
   
   init() {
@@ -99,15 +102,15 @@ class AudioEngine {
     this.startAmbient();
   }
 
-  toggle() {
-    this.enabled = !this.enabled;
-    if (this.enabled) {
-      if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
-      if (this.bgmGain) this.bgmGain.gain.setTargetAtTime(0.3, this.ctx.currentTime, 0.5);
-    } else {
-      if (this.bgmGain) this.bgmGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.5);
+  setBGM(enabled) {
+    this.bgmEnabled = enabled;
+    if (this.bgmGain) {
+      this.bgmGain.gain.setTargetAtTime(enabled ? 0.3 : 0, this.ctx.currentTime, 0.5);
     }
-    return this.enabled;
+  }
+
+  setSFX(enabled) {
+    this.sfxEnabled = enabled;
   }
 
   startAmbient() {
@@ -115,7 +118,7 @@ class AudioEngine {
     if (!this.ctx) return;
 
     this.bgmGain = this.ctx.createGain();
-    this.bgmGain.gain.value = this.enabled ? 0.3 : 0;
+    this.bgmGain.gain.value = this.bgmEnabled ? 0.3 : 0;
     this.bgmGain.connect(this.ctx.destination);
 
     const osc1 = this.ctx.createOscillator();
@@ -148,7 +151,7 @@ class AudioEngine {
   }
 
   play(type, volume = 1) {
-    if (!this.enabled || !this.ctx) return;
+    if (!this.sfxEnabled || !this.ctx) return;
     
     const t = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
@@ -342,7 +345,8 @@ class Particle {
     this.y += this.vy * dt;
     this.life -= this.decay * dt;
   }
-  draw(ctx) {
+  draw(ctx, settings) {
+    if (!settings.particles) return;
     ctx.globalAlpha = Math.max(0, this.life);
     ctx.fillStyle = this.color;
     ctx.beginPath();
@@ -388,7 +392,7 @@ class Orb {
     }
   }
 
-  draw(ctx, preRenderedCanvases) {
+  draw(ctx, preRenderedCanvases, settings) {
     if (this.absorbProgress >= 1) return;
     
     const yOffset = Math.sin(this.bobOffset) * 3;
@@ -399,8 +403,10 @@ class Orb {
     ctx.scale(scale, scale);
     
     if (this.isPowerup) {
-      ctx.shadowBlur = 15;
-      ctx.shadowColor = this.color;
+      if (settings.glow) {
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = this.color;
+      }
       ctx.fillStyle = this.color;
       ctx.beginPath();
       ctx.arc(0, 0, this.size + Math.sin(this.bobOffset * 2) * 2, 0, Math.PI * 2);
@@ -419,7 +425,7 @@ class Orb {
       ctx.fillText(icon, 0, 0);
     } else {
       const canvas = preRenderedCanvases[this.color];
-      if (canvas) {
+      if (canvas && settings.glow) {
         ctx.drawImage(canvas, -this.size * 2, -this.size * 2, this.size * 4, this.size * 4);
       } else {
         ctx.fillStyle = this.color;
@@ -651,7 +657,7 @@ class Snake {
     if (this.y > WORLD_SIZE - wallMargin) this.targetAngle = lerpAngle(this.targetAngle, -Math.PI / 2, dt * 2);
   }
 
-  draw(ctx) {
+  draw(ctx, settings) {
     if (this.dead) return;
     
     ctx.save();
@@ -664,9 +670,11 @@ class Snake {
       ctx.arc(this.x, this.y, this.size * 2 + Math.sin(this.timeAlive * 10) * 5, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(0, 180, 216, 0.2)';
       ctx.fill();
-      ctx.strokeStyle = COLORS.turquoise;
-      ctx.lineWidth = 2;
-      ctx.stroke();
+      if (settings.glow) {
+        ctx.strokeStyle = COLORS.turquoise;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
     }
 
     if (this.magnetTimer > 0) {
@@ -907,6 +915,9 @@ export default function OceanApp() {
   const engineRef = useRef(null);
   const joystick = useRef({ active: false, x: 0, y: 0, baseX: 0, baseY: 0 });
   
+  const [quality, setQuality] = useState(qualityManager.currentQuality);
+  const settings = qualityManager.getSettings();
+
   const [isMobile, setIsMobile] = useState(false);
   const [gameState, setGameState] = useState('START'); 
   const [score, setScore] = useState(0);
@@ -916,7 +927,13 @@ export default function OceanApp() {
   const [selectedSkinIndex, setSelectedSkinIndex] = useState(0);
   const [leaderboard, setLeaderboard] = useState([]);
   const [powerups, setPowerups] = useState({ shield: 0, speed: 0, magnet: 0 });
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [bgmEnabled, setBgmEnabled] = useState(() => {
+    return localStorage.getItem('ocean_bgm') !== 'false';
+  });
+  const [sfxEnabled, setSfxEnabled] = useState(() => {
+    return localStorage.getItem('ocean_sfx') !== 'false';
+  });
+  const [showSettings, setShowSettings] = useState(false);
   const [isPortrait, setIsPortrait] = useState(false);
 
   const [coins, setCoins] = useState(() => {
@@ -1003,7 +1020,8 @@ export default function OceanApp() {
   };
 
   const spawnExplosion = (x, y, color, count) => {
-    for (let i = 0; i < count; i++) {
+    const adjustedCount = Math.floor(count * settings.particles);
+    for (let i = 0; i < adjustedCount; i++) {
       state.current.particles.push(new Particle(x, y, color, 1));
     }
   };
@@ -1011,7 +1029,6 @@ export default function OceanApp() {
   const startGame = () => {
     const s = state.current;
     s.audio.init();
-    s.audio.enabled = soundEnabled;
     s.snakes = []; s.orbs = []; s.particles = []; s.spatialHash.clear(); s.eventQueue = []; s.lastKingId = null;
     const animalNames = ['Tubarão', 'Arraia', 'Peixe-Espada', 'Orca', 'Kraken', 'Marlin', 'Baleia', 'Golfinho'];
     const randomId = Math.floor(100 + Math.random() * 899);
@@ -1041,6 +1058,8 @@ export default function OceanApp() {
     }
 
     setGameState('PLAYING'); setScore(500); setPowerups({ shield: 0, speed: 0, magnet: 0 });
+    s.audio.setBGM(bgmEnabled);
+    s.audio.setSFX(sfxEnabled);
     s.lastTime = performance.now();
     if (engineRef.current) cancelAnimationFrame(engineRef.current);
     engineRef.current = requestAnimationFrame(gameLoop);
@@ -1109,7 +1128,17 @@ export default function OceanApp() {
   };
 
   const gameLoop = (timestamp) => {
-    const s = state.current; const dt = Math.min((timestamp - s.lastTime) / 1000, 0.1); s.lastTime = timestamp;
+    const s = state.current; 
+    const targetInterval = 1000 / settings.targetFPS;
+    const elapsed = timestamp - s.lastTime;
+    
+    if (elapsed < targetInterval - 1) { // -1ms buffer
+      engineRef.current = requestAnimationFrame(gameLoop);
+      return;
+    }
+
+    const dt = Math.min(elapsed / 1000, 0.1); 
+    s.lastTime = timestamp;
     const canvas = canvasRef.current; if (!canvas) return; const ctx = canvas.getContext('2d');
     let pTarget = null;
     if (s.player && !s.player.dead) {
@@ -1259,17 +1288,24 @@ export default function OceanApp() {
     const R = 45; const wHex = Math.sqrt(3) * R; const hHex = R * 1.5;
     const startCol = Math.floor((s.camera.x - viewW/2) / wHex) - 1; const endCol = Math.floor((s.camera.x + viewW/2) / wHex) + 1;
     const startRow = Math.floor((s.camera.y - viewH/2) / hHex) - 1; const endRow = Math.floor((s.camera.y + viewH/2) / hHex) + 1;
+    const gridSimplify = settings.label === 'Baixo' ? 2 : 1;
     ctx.lineWidth = 3; ctx.strokeStyle = '#0a0d14'; 
-    for (let row = startRow; row <= endRow; row++) {
-      for (let col = startCol; col <= endCol; col++) {
+    for (let row = startRow; row <= endRow; row += gridSimplify) {
+      for (let col = startCol; col <= endCol; col += gridSimplify) {
         let hx = col * wHex; let hy = row * hHex; if (row % 2 !== 0) hx += wHex / 2;
-        ctx.beginPath(); for (let i = 0; i < 6; i++) { const angle = Math.PI / 3 * i - Math.PI / 6; ctx.lineTo(hx + R * Math.cos(angle), hy + R * Math.sin(angle)); }
-        ctx.closePath(); const grad = ctx.createLinearGradient(hx, hy - R, hx, hy + R); grad.addColorStop(0, '#1c2331'); grad.addColorStop(1, '#0e121a'); ctx.fillStyle = grad; ctx.fill(); ctx.stroke();
+        ctx.beginPath(); for (let i = 0; i < 6; i++) { const angle = Math.PI / 3 * i - Math.PI / 6; ctx.lineTo(hx + R * Math.cos(angle) * gridSimplify, hy + R * Math.sin(angle) * gridSimplify); }
+        ctx.closePath(); 
+        if (settings.label !== 'Baixo') {
+          const grad = ctx.createLinearGradient(hx, hy - R, hx, hy + R); grad.addColorStop(0, '#1c2331'); grad.addColorStop(1, '#0e121a'); ctx.fillStyle = grad; 
+        } else {
+          ctx.fillStyle = '#0e121a';
+        }
+        ctx.fill(); ctx.stroke();
       }
     }
     ctx.strokeStyle = 'rgba(255, 60, 60, 0.3)'; ctx.lineWidth = 10; ctx.strokeRect(0, 0, WORLD_SIZE, WORLD_SIZE);
-    s.orbs.forEach(orb => { if (Math.abs(orb.x - s.camera.x) < viewW/2 + 50 && Math.abs(orb.y - s.camera.y) < viewH/2 + 50) orb.draw(ctx, s.orbCanvases); });
-    s.particles.forEach(p => p.draw(ctx)); [...s.snakes].sort((a, b) => a.size - b.size).forEach(snake => snake.draw(ctx));
+    s.orbs.forEach(orb => { if (Math.abs(orb.x - s.camera.x) < viewW/2 + 50 && Math.abs(orb.y - s.camera.y) < viewH/2 + 50) orb.draw(ctx, s.orbCanvases, settings); });
+    s.particles.forEach(p => p.draw(ctx, settings)); [...s.snakes].sort((a, b) => a.size - b.size).forEach(snake => snake.draw(ctx, settings));
     ctx.restore();
     if (s.player && !s.player.dead) {
       const mmRadius = 60; const mmX = canvas.width - mmRadius - 20; const mmY = canvas.height - mmRadius - 20;
@@ -1311,10 +1347,17 @@ export default function OceanApp() {
   }, [isMobile]);
 
   useEffect(() => {
-    const handleResize = () => { if (canvasRef.current) { canvasRef.current.width = window.innerWidth; canvasRef.current.height = window.innerHeight; } };
+    const handleResize = () => { 
+      if (canvasRef.current) { 
+        canvasRef.current.width = window.innerWidth * settings.renderScale; 
+        canvasRef.current.height = window.innerHeight * settings.renderScale; 
+        canvasRef.current.style.width = '100vw';
+        canvasRef.current.style.height = '100vh';
+      } 
+    };
     window.addEventListener('resize', handleResize); handleResize();
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [settings.renderScale]);
 
   const handleUnlock = () => {
     const currentSkin = SKINS[selectedSkinIndex];
@@ -1380,8 +1423,21 @@ export default function OceanApp() {
               </div>
             </>
           )}
-          <button onClick={() => setSoundEnabled(state.current.audio.toggle())} className="absolute top-4 right-4 sm:bottom-4 sm:top-auto bg-black/40 hover:bg-black/60 text-white w-12 h-12 flex items-center justify-center rounded-full backdrop-blur border border-white/20 transition-all text-xl cursor-pointer z-50" title={soundEnabled ? "Desativar Som" : "Ativar Som"}>
-            {soundEnabled ? '🔊' : '🔇'}
+          <button onClick={() => {
+            const newState = !bgmEnabled;
+            setBgmEnabled(newState);
+            localStorage.setItem('ocean_bgm', newState.toString());
+            state.current.audio.setBGM(newState);
+          }} className="absolute top-4 right-4 sm:bottom-4 sm:top-auto bg-black/40 hover:bg-black/60 text-white w-12 h-12 flex items-center justify-center rounded-full backdrop-blur border border-white/10 transition-all text-xl cursor-pointer z-50 shadow-lg" title={bgmEnabled ? "Desativar BGM" : "Ativar BGM"}>
+            {bgmEnabled ? '🎵' : '🔇'}
+          </button>
+          <button onClick={() => {
+            const newState = !sfxEnabled;
+            setSfxEnabled(newState);
+            localStorage.setItem('ocean_sfx', newState.toString());
+            state.current.audio.setSFX(newState);
+          }} className="absolute top-4 right-20 sm:bottom-4 sm:right-20 sm:top-auto bg-black/40 hover:bg-black/60 text-white w-12 h-12 flex items-center justify-center rounded-full backdrop-blur border border-white/10 transition-all text-xl cursor-pointer z-50 shadow-lg" title={sfxEnabled ? "Desativar Efeitos" : "Ativar Efeitos"}>
+            {sfxEnabled ? '🔊' : '🔇'}
           </button>
         </>
       )}
@@ -1402,7 +1458,68 @@ export default function OceanApp() {
 
       {gameState !== 'PLAYING' && (
         <div className="absolute inset-0 bg-[#0f172a]/95 flex flex-col items-center justify-center z-50 font-sans text-white backdrop-blur-md overflow-hidden anim-fade-in p-4">
-          <div className="absolute top-2 md:top-4 right-4 bg-black/40 border border-yellow-500/50 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-yellow-400 font-bold text-base md:text-lg drop-shadow-[0_0_8px_rgba(250,204,21,0.3)] flex items-center gap-2 z-10">🪙 {coins}</div>
+          <div className="absolute top-2 md:top-4 right-4 flex gap-2 z-10">
+            <button onClick={() => setShowSettings(!showSettings)} className="bg-black/40 border border-white/20 p-2 rounded-full hover:bg-black/60 transition-all active:scale-90">
+              <span className="text-xl">⚙️</span>
+            </button>
+            <div className="bg-black/40 border border-yellow-500/50 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-yellow-400 font-bold text-base md:text-lg drop-shadow-[0_0_8px_rgba(250,204,21,0.3)] flex items-center gap-2">🪙 {coins}</div>
+          </div>
+          
+          {showSettings && (
+            <div className="absolute inset-0 z-[60] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setShowSettings(false)}>
+              <div className="bg-[#1e293b] border-2 border-white/10 p-6 rounded-3xl w-full max-w-sm shadow-2xl anim-pop-in" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-black uppercase tracking-widest text-white/90">Configurações</h2>
+                  <button onClick={() => setShowSettings(false)} className="text-gray-400 hover:text-white text-2xl">×</button>
+                </div>
+                
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between bg-black/20 p-4 rounded-2xl border border-white/5">
+                    <div className="flex flex-col">
+                      <span className="font-bold text-white">Música (BGM)</span>
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wider">Sons de fundo</span>
+                    </div>
+                    <button onClick={() => {
+                        const newState = !bgmEnabled;
+                        setBgmEnabled(newState);
+                        localStorage.setItem('ocean_bgm', newState.toString());
+                        state.current.audio.setBGM(newState);
+                      }} className={`w-14 h-8 rounded-full transition-all relative ${bgmEnabled ? 'bg-green-500' : 'bg-gray-700'}`}>
+                      <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all ${bgmEnabled ? 'left-7' : 'left-1'}`} />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between bg-black/20 p-4 rounded-2xl border border-white/5">
+                    <div className="flex flex-col">
+                      <span className="font-bold text-white">Efeitos (SFX)</span>
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wider">Ações e itens</span>
+                    </div>
+                    <button onClick={() => {
+                        const newState = !sfxEnabled;
+                        setSfxEnabled(newState);
+                        localStorage.setItem('ocean_sfx', newState.toString());
+                        state.current.audio.setSFX(newState);
+                      }} className={`w-14 h-8 rounded-full transition-all relative ${sfxEnabled ? 'bg-green-500' : 'bg-gray-700'}`}>
+                      <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all ${sfxEnabled ? 'left-7' : 'left-1'}`} />
+                    </button>
+                  </div>
+
+                  <div className="bg-black/20 p-4 rounded-2xl border border-white/5">
+                    <span className="font-bold text-white block mb-3 text-center uppercase text-xs tracking-widest">Qualidade Gráfica</span>
+                    <div className="flex gap-2">
+                       {['LOW', 'MEDIUM', 'HIGH'].map(lvl => (
+                        <button key={lvl} onClick={() => { qualityManager.setQuality(lvl); setQuality(lvl); }} className={`flex-1 py-2 text-[10px] font-black rounded-xl transition-all border-2 ${quality === lvl ? 'bg-purple-600 border-purple-400 text-white shadow-[0_0_15px_rgba(168,85,247,0.4)]' : 'bg-white/5 border-transparent text-gray-500 hover:bg-white/10'}`}>
+                          {qualityManager.levels[lvl].label.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <button onClick={() => setShowSettings(false)} className="w-full mt-8 bg-white/10 hover:bg-white/20 py-3 rounded-2xl font-bold transition-all uppercase text-xs tracking-[0.3em]">Fechar</button>
+              </div>
+            </div>
+          )}
           
           <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12 w-full max-w-5xl h-full py-2">
             {gameState === 'GAMEOVER' ? (
