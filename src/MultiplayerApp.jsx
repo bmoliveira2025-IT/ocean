@@ -65,6 +65,7 @@ export default function MultiplayerApp({ onBack }) {
   const inputRef = useRef({ angle: 0, isBoosting: false });
   const myIdRef = useRef(null);
   const settingsRef = useRef(qualityManager.getSettings());
+  const isMobileRef = useRef(false);
 
   const [quality, setQuality] = useState(qualityManager.currentQuality);
   const [uiState, setUiState] = useState('LOBBY');
@@ -75,11 +76,14 @@ export default function MultiplayerApp({ onBack }) {
   const [leaderboard, setLeaderboard] = useState([]);
   const [killFeed, setKillFeed] = useState([]);
   const [killCount, setKillCount] = useState(0);
+  const [ping, setPing] = useState(null);
   const [connectionError, setConnectionError] = useState(null);
   const joystick = useRef({ active: false, baseX: 0, baseY: 0 });
 
   useEffect(() => {
-    setIsMobile(window.matchMedia('(max-width: 800px)').matches || navigator.maxTouchPoints > 0);
+    const mobile = window.matchMedia('(max-width: 800px)').matches || navigator.maxTouchPoints > 0;
+    setIsMobile(mobile);
+    isMobileRef.current = mobile;
   }, []);
 
   useEffect(() => {
@@ -157,19 +161,30 @@ export default function MultiplayerApp({ onBack }) {
       setUiState('LOBBY');
     });
 
+    // Ping measurement
+    socket.on('pong_check', (sentAt) => {
+      setPing(Date.now() - sentAt);
+    });
+
     return () => {
       socket.off('joined'); socket.off('state');
-      socket.off('orbSpawn'); socket.off('orbDelete'); socket.off('connect_error');
+      socket.off('orbSpawn'); socket.off('orbDelete');
+      socket.off('connect_error'); socket.off('pong_check');
       cancelAnimationFrame(animFrameRef.current);
     };
   }, []);
 
   useEffect(() => {
     if (uiState !== 'PLAYING') return;
-    const interval = setInterval(() => {
+    // Send input at 30fps
+    const inputInterval = setInterval(() => {
       if (socket.connected) socket.emit('input', inputRef.current);
     }, 1000 / 30);
-    return () => clearInterval(interval);
+    // Send ping every 2s
+    const pingInterval = setInterval(() => {
+      if (socket.connected) socket.emit('ping_check', Date.now());
+    }, 2000);
+    return () => { clearInterval(inputInterval); clearInterval(pingInterval); };
   }, [uiState]);
 
   const startRenderLoop = () => {
@@ -213,7 +228,54 @@ export default function MultiplayerApp({ onBack }) {
       orbs.forEach(orb => {
         if (Math.abs(orb.x - camX) < viewW / 2 + 50 && Math.abs(orb.y - camY) < viewH / 2 + 50) drawOrb(ctx, orb);
       });
-      [...snakes].sort((a, b) => a.size - b.size).forEach(snake => drawSnake(ctx, snake, settings));
+      const mobile = isMobileRef.current;
+      const margin = 200;
+      [...snakes]
+        .filter(s => Math.abs(s.x - camX) < viewW / 2 + margin && Math.abs(s.y - camY) < viewH / 2 + margin)
+        .sort((a, b) => a.size - b.size)
+        .forEach(snake => {
+          if (!snake || !snake.body || snake.body.length === 0) return;
+          const { color, x, y, angle, size, isBoosting, shieldTimer } = snake;
+          // Body — skip every other segment on mobile
+          const step = mobile ? 2 : 1;
+          for (let i = 0; i < snake.body.length; i += step) {
+            const [bx, by] = snake.body[i];
+            const p = 1 - (i / snake.body.length);
+            const s = size * (0.4 + 0.6 * p);
+            ctx.beginPath(); ctx.arc(bx, by, s, 0, Math.PI * 2);
+            if (mobile) {
+              ctx.fillStyle = isBoosting ? '#f4d03f' : color;
+            } else {
+              const grad = ctx.createRadialGradient(bx, by, 0, bx, by, s);
+              if (isBoosting) { grad.addColorStop(0, '#f4d03f'); grad.addColorStop(1, '#d35400'); }
+              else { grad.addColorStop(0, color); grad.addColorStop(0.8, color); grad.addColorStop(1, 'rgba(0,0,0,0.4)'); }
+              ctx.fillStyle = grad;
+            }
+            ctx.fill();
+          }
+          // Head
+          ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
+          ctx.beginPath(); ctx.arc(0, 0, size, 0, Math.PI * 2);
+          ctx.fillStyle = color; ctx.fill();
+          if (!mobile) {
+            ctx.fillStyle = '#00b4d8'; ctx.beginPath(); ctx.arc(size * 0.3, 0, size * 0.45, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#0a0a0a'; ctx.beginPath(); ctx.arc(size * 0.3 + 2, 0, size * 0.22, 0, Math.PI * 2); ctx.fill();
+          }
+          ctx.restore();
+          // Shield ring
+          if (shieldTimer > 0 && !mobile) {
+            ctx.beginPath(); ctx.arc(x, y, size * 2, 0, Math.PI * 2);
+            ctx.strokeStyle = '#00b4d8'; ctx.lineWidth = 2; ctx.stroke();
+          }
+          // Name tag — skip for distant snakes when mobile
+          const screenDist = Math.hypot(x - camX, y - camY);
+          if (size > 12 && (!mobile || screenDist < 600)) {
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.font = `${Math.max(10, size * 0.8)}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillText(snake.name, x, y - size - 8);
+          }
+        });
       ctx.restore();
 
       if (me) {
@@ -313,6 +375,11 @@ export default function MultiplayerApp({ onBack }) {
             <p>Comprimento: <b className="text-white text-base">{Math.floor(score / 10)}</b></p>
             <p className="text-xs text-white/60 mt-1">Posição: <span className="text-yellow-400 font-bold">#{rank}</span></p>
             {killCount > 0 && <p className="text-red-400 text-xs mt-1">💀 Abates: {killCount}</p>}
+            {ping !== null && (
+              <p className={`text-xs mt-1 font-mono font-bold ${ping < 80 ? 'text-green-400' : ping < 180 ? 'text-yellow-400' : 'text-red-400'}`}>
+                Ping: {ping}ms
+              </p>
+            )}
           </div>
 
           {/* Leaderboard top 10 */}

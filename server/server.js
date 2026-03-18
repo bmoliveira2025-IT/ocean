@@ -65,6 +65,11 @@ io.on('connection', (socket) => {
     if (room) room.updateInput(socket.id, input);
   });
 
+  // Ping/pong for latency measurement
+  socket.on('ping_check', (clientTime) => {
+    socket.emit('pong_check', clientTime);
+  });
+
   socket.on('disconnect', (reason) => {
     const roomId = socket.data.roomId;
     const room = rooms.get(roomId);
