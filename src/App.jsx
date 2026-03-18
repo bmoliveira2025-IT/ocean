@@ -1428,7 +1428,7 @@ export default function OceanApp() {
             setBgmEnabled(newState);
             localStorage.setItem('ocean_bgm', newState.toString());
             state.current.audio.setBGM(newState);
-          }} className="absolute top-4 right-4 sm:bottom-4 sm:top-auto bg-black/40 hover:bg-black/60 text-white w-12 h-12 flex items-center justify-center rounded-full backdrop-blur border border-white/10 transition-all text-xl cursor-pointer z-50 shadow-lg" title={bgmEnabled ? "Desativar BGM" : "Ativar BGM"}>
+          }} className={`absolute top-4 right-4 sm:top-auto ${isMobile ? 'sm:bottom-36' : 'sm:bottom-4'} bg-black/40 hover:bg-black/60 text-white w-12 h-12 flex items-center justify-center rounded-full backdrop-blur border border-white/10 transition-all text-xl cursor-pointer z-50 shadow-lg`} title={bgmEnabled ? "Desativar BGM" : "Ativar BGM"}>
             {bgmEnabled ? '🎵' : '🔇'}
           </button>
           <button onClick={() => {
@@ -1436,7 +1436,7 @@ export default function OceanApp() {
             setSfxEnabled(newState);
             localStorage.setItem('ocean_sfx', newState.toString());
             state.current.audio.setSFX(newState);
-          }} className="absolute top-4 right-20 sm:bottom-4 sm:right-20 sm:top-auto bg-black/40 hover:bg-black/60 text-white w-12 h-12 flex items-center justify-center rounded-full backdrop-blur border border-white/10 transition-all text-xl cursor-pointer z-50 shadow-lg" title={sfxEnabled ? "Desativar Efeitos" : "Ativar Efeitos"}>
+          }} className={`absolute top-4 right-20 sm:top-auto ${isMobile ? 'sm:bottom-36' : 'sm:bottom-4'} bg-black/40 hover:bg-black/60 text-white w-12 h-12 flex items-center justify-center rounded-full backdrop-blur border border-white/10 transition-all text-xl cursor-pointer z-50 shadow-lg`} title={sfxEnabled ? "Desativar Efeitos" : "Ativar Efeitos"}>
             {sfxEnabled ? '🔊' : '🔇'}
           </button>
         </>
