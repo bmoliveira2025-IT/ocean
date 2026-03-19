@@ -254,6 +254,8 @@ export default function MultiplayerApp({ onBack }) {
     socket.on('joined', ({ playerId, orbs }) => {
       myIdRef.current = playerId;
       worldRef.current.orbs = orbs;
+      smoothSnakesRef.current.clear(); // Limpar cache antigo
+      cameraRef.current = { x: 0, y: 0, zoom: 0.8 }; // Reset camera
       setUiState('PLAYING');
       startRenderLoop();
     });
@@ -397,6 +399,7 @@ export default function MultiplayerApp({ onBack }) {
   }, [uiState]);
 
   const startRenderLoop = () => {
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     const render = (time) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -475,15 +478,21 @@ export default function MultiplayerApp({ onBack }) {
       });
 
       const me = smoothSnakesRef.current.get(myIdRef.current);
-      if (me) {
+      if (me && me.score !== undefined) {
         cameraRef.current.x = lerp(cameraRef.current.x, me.x, 0.1);
         cameraRef.current.y = lerp(cameraRef.current.y, me.y, 0.1);
         
         // FOV Formula: Proportional and gradual.
-        // Base zoom 0.8. Only start shrinking significantly after score 2000.
-        // math: 0.8 * (target_scale ^ power)
-        const targetZoom = Math.max(0.15, 0.85 * Math.pow(2500 / Math.max(2500, me.score), 0.35));
-        cameraRef.current.zoom = lerp(cameraRef.current.zoom, targetZoom, 0.05);
+        let targetZoom = 0.85 * Math.pow(2500 / Math.max(2500, me.score), 0.35);
+        if (isNaN(targetZoom)) targetZoom = 0.8;
+        cameraRef.current.zoom = lerp(cameraRef.current.zoom, Math.max(0.15, targetZoom), 0.05);
+      }
+      
+      // Safety: ensure zoom is valid before drawing
+      const { x: camX, y: camY, zoom } = cameraRef.current;
+      if (isNaN(zoom) || zoom <= 0) {
+        animFrameRef.current = requestAnimationFrame(render);
+        return;
       }
       const renderSnakes = smoothSnakes;
 
@@ -510,17 +519,16 @@ export default function MultiplayerApp({ onBack }) {
         });
       }
 
-      const { x: camX, y: camY, zoom } = cameraRef.current;
       ctx.fillStyle = '#10141d'; ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.save(); ctx.translate(canvas.width / 2, canvas.height / 2);
       ctx.scale(zoom, zoom); ctx.translate(-camX, -camY);
 
       const R = 45; const wHex = Math.sqrt(3) * R; const hHex = R * 1.5;
       const viewW = canvas.width / zoom; const viewH = canvas.height / zoom;
-      const startCol = Math.floor((camX - viewW / 2) / wHex) - 1;
-      const endCol = Math.floor((camX + viewW / 2) / wHex) + 1;
-      const startRow = Math.floor((camY - viewH / 2) / hHex) - 1;
-      const endRow = Math.floor((camY + viewH / 2) / hHex) + 1;
+      const startCol = Math.max(-200, Math.floor((camX - viewW / 2) / wHex) - 1);
+      const endCol = Math.min(200, Math.floor((camX + viewW / 2) / wHex) + 1);
+      const startRow = Math.max(-200, Math.floor((camY - viewH / 2) / hHex) - 1);
+      const endRow = Math.min(200, Math.floor((camY + viewH / 2) / hHex) + 1);
       ctx.lineWidth = 3; ctx.strokeStyle = '#0a0d14';
       for (let row = startRow; row <= endRow; row++) {
         for (let col = startCol; col <= endCol; col++) {
@@ -604,8 +612,11 @@ export default function MultiplayerApp({ onBack }) {
   };
 
   const handleLeave = () => {
-    socket.disconnect(); cancelAnimationFrame(animFrameRef.current);
+    socket.disconnect(); 
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    animFrameRef.current = null;
     myIdRef.current = null; worldRef.current = { snakes: [], orbs: [] };
+    smoothSnakesRef.current.clear();
     setUiState('LOBBY');
   };
 
