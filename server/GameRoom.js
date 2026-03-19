@@ -111,7 +111,7 @@ class Snake {
     return Math.floor(INITIAL_LENGTH + this.score / 100);
   }
 
-  update(dt, input) {
+  update(dt, input, radius) {
     if (this.dead) return;
     if (this.spawnProtection > 0) this.spawnProtection -= dt;
     if (this.shieldTimer > 0) this.shieldTimer -= dt;
@@ -122,7 +122,7 @@ class Snake {
       this.targetAngle = input.angle;
       this.isBoosting = input.isBoosting;
     } else {
-      this.updateAI(dt);
+      this.updateAI(dt, radius);
     }
 
     if (this.isBoosting && this.boostEnergy > 0) {
@@ -163,6 +163,12 @@ class Snake {
 
     // Bot score growth
     if (this.isBot) this.score += dt * 10;
+
+    // Final safety check
+    if (isNaN(this.x) || isNaN(this.y) || isNaN(this.angle) || isNaN(this.score)) {
+      console.error(`[Snake Safety] Corrupted state for ${this.id}: x=${this.x}, y=${this.y}, angle=${this.angle}, score=${this.score}`);
+      this.x = 0; this.y = 0; this.angle = 0; this.score = 500;
+    }
   }
 
   updateAI(dt, radius) {
@@ -253,17 +259,22 @@ class GameRoom {
   }
 
   addPlayer(socketId, name, skinColor, skinType) {
-    const snake = new Snake(socketId, name, skinColor, skinType, this.currentRadius, false);
-    this.players.set(socketId, snake);
-    this.inputs.set(socketId, { angle: 0, isBoosting: false });
+    try {
+      const snake = new Snake(socketId, name, skinColor, skinType, this.currentRadius, false);
+      this.players.set(socketId, snake);
+      this.inputs.set(socketId, { angle: 0, isBoosting: false });
 
-    // Send initial state (orbs)
-    const orbsArray = Array.from(this.orbs.values()).map(o => ({
-      id: o.id, x: Math.round(o.x), y: Math.round(o.y),
-      color: o.color, size: o.size, isPowerup: o.isPowerup,
-      type: o.type
-    }));
-    return { snake, orbs: orbsArray };
+      // Send initial state (orbs)
+      const orbsArray = Array.from(this.orbs.values()).map(o => ({
+        id: o.id, x: Math.round(o.x), y: Math.round(o.y),
+        color: o.color, size: o.size, isPowerup: o.isPowerup,
+        type: o.type
+      }));
+      return { snake, orbs: orbsArray };
+    } catch (err) {
+      console.error(`[GameRoom] Error adding player ${socketId}:`, err);
+      throw err;
+    }
   }
 
   removePlayer(socketId) {
@@ -283,7 +294,8 @@ class GameRoom {
   }
 
   _tick() {
-    const now = Date.now();
+    try {
+      const now = Date.now();
     const dt = Math.min((now - this.lastTime) / 1000, 0.1);
     this.lastTime = now;
     this.events = [];
@@ -294,9 +306,13 @@ class GameRoom {
     // Update snakes
     const spawnedOrbs = [];
     allSnakes.forEach(snake => {
-      if (snake.dead) return;
+      if (!snake || snake.dead) return;
       const input = this.inputs.get(snake.id);
-      snake.update(dt, input, this.currentRadius);
+      try {
+        snake.update(dt, input, this.currentRadius);
+      } catch (e) {
+        console.error(`[GameRoom] Error updating snake ${snake.id}:`, e);
+      }
       
       // Drops for boost trail
       if (snake.isBoosting && snake.boostEnergy > 0 && snake.score > 150) {
@@ -432,12 +448,15 @@ class GameRoom {
     const playerDTOs = [...this.players.values()].map(s => s.toDTO());
     const botDTOs = this.bots.filter(b => !b.dead).map(s => s.toDTO());
 
-    this.io.to(this.id).emit('state', {
-      snakes: [...playerDTOs, ...botDTOs],
-      worldRadius: Math.round(this.currentRadius),
-      events: this.events,
-      tick: Date.now()
-    });
+      this.io.to(this.id).emit('state', {
+        snakes: [...playerDTOs, ...botDTOs],
+        worldRadius: Math.round(this.currentRadius),
+        events: this.events,
+        tick: Date.now()
+      });
+    } catch (err) {
+      console.error('[GameRoom Tick Error]', err);
+    }
   }
 
   _dropSnakeOrbs(snake) {

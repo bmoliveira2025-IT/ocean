@@ -299,10 +299,15 @@ export default function MultiplayerApp({ onBack }) {
         if (!currentIds.has(id)) smoothSnakes.delete(id);
       }
 
+      if (snakes.length > 0) {
+        // Log basic info (first snake only to avoid spam)
+        if (Math.random() < 0.05) console.log(`[Socket] State received. Players: ${snakes.length}`);
+      }
+
       snakes.forEach(serv => {
         let smooth = smoothSnakes.get(serv.id);
         if (!smooth) {
-          smooth = { ...serv, path: serv.body.map(p => ({x:p[0], y:p[1]})).reverse() };
+          smooth = { ...serv, path: (serv.body || []).map(p => ({x:p[0], y:p[1]})).reverse() };
           // If local, use prediction record
           if (serv.id === myIdRef.current && predictedMeRef.current) {
             smooth = predictedMeRef.current;
@@ -337,7 +342,12 @@ export default function MultiplayerApp({ onBack }) {
           rank: i + 1, name: s.name, score: Math.floor(s.score), color: s.color, isMe: s.id === myIdRef.current
         })));
       } else if (myIdRef.current) {
-        setUiState('DIED');
+        // Safe check: Only transition to DIED if we were previously in the state
+        // This avoids race conditions during initial join
+        const previouslyFound = smoothSnakesRef.current.has(myIdRef.current);
+        if (previouslyFound) {
+          setUiState('DIED');
+        }
       }
     });
 
@@ -402,7 +412,11 @@ export default function MultiplayerApp({ onBack }) {
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     const render = (time) => {
       const canvas = canvasRef.current;
-      if (!canvas) return;
+      if (!canvas) {
+        // Se o canvas sumir temporariamente (re-render), não pare o loop
+        animFrameRef.current = requestAnimationFrame(render);
+        return;
+      }
       const t = time / 1000; // time in seconds for animations
       const ctx = canvas.getContext('2d');
       const settings = settingsRef.current;
@@ -410,7 +424,9 @@ export default function MultiplayerApp({ onBack }) {
 
       // --- Smooth Movement Update for all snakes ---
       const now = performance.now();
-      const dt = Math.min((now - (lastRenderRef.current || now)) / 1000, 0.05);
+      let dt = (now - (lastRenderRef.current || now)) / 1000;
+      if (isNaN(dt) || dt < 0) dt = 0;
+      dt = Math.min(dt, 0.05);
       lastRenderRef.current = now;
       
       const smoothSnakes = Array.from(smoothSnakesRef.current.values());
@@ -483,9 +499,11 @@ export default function MultiplayerApp({ onBack }) {
         cameraRef.current.y = lerp(cameraRef.current.y, me.y, 0.1);
         
         // FOV Formula: Proportional and gradual.
-        let targetZoom = 0.85 * Math.pow(2500 / Math.max(2500, me.score), 0.35);
-        if (isNaN(targetZoom)) targetZoom = 0.8;
-        cameraRef.current.zoom = lerp(cameraRef.current.zoom, Math.max(0.15, targetZoom), 0.05);
+        let targetZoom = 0.85 * Math.pow(2500 / Math.max(2500, me.score || 0), 0.35);
+        if (isNaN(targetZoom) || !isFinite(targetZoom)) targetZoom = 0.8;
+        
+        const currentZoom = isNaN(cameraRef.current.zoom) ? 0.8 : cameraRef.current.zoom;
+        cameraRef.current.zoom = lerp(currentZoom, Math.max(0.15, targetZoom), 0.05);
       }
       
       // Safety: ensure zoom is valid before drawing
@@ -601,14 +619,26 @@ export default function MultiplayerApp({ onBack }) {
       }
     } catch (e) { /* fullscreen may be denied, continue anyway */ }
 
-    const name = playerName.trim() || `Jogador${Math.floor(Math.random() * 999)}`;
+    const OCEAN_NAMES = ['Tubarão', 'Baleia', 'Polvo', 'Medusa', 'Arraia', 'Dourado', 'Lagosta', 'Caranguejo', 'Estrela', 'Coral', 'Nemo', 'Moby', 'Orca', 'Dolphin', 'Kraken'];
+    const randomName = OCEAN_NAMES[Math.floor(Math.random() * OCEAN_NAMES.length)];
+    const name = playerName.trim() || `${randomName} ${Math.floor(Math.random() * 999)}`;
     const skinColor = SKINS[selectedSkinIdx].color;
     const skinType = SKINS[selectedSkinIdx].type;
     setConnectionError(null); setKillCount(0); setKillFeed([]); setLeaderboard([]);
     setPowerupBanner(null);
     setUiState('CONNECTING');
-    socket.connect();
-    socket.once('connect', () => { socket.emit('join', { name, skinColor, skinType }); });
+    
+    const finalizeJoin = () => {
+      console.log("[Socket] Connected, emitting join...");
+      socket.emit('join', { name, skinColor, skinType });
+    };
+
+    if (socket.connected) {
+      finalizeJoin();
+    } else {
+      socket.connect();
+      socket.once('connect', finalizeJoin);
+    }
   };
 
   const handleLeave = () => {
@@ -853,7 +883,7 @@ export default function MultiplayerApp({ onBack }) {
           )}
 
           {/* Conteúdo — flex-1 sem overflow, tudo cabe aqui */}
-          <div className="flex-1 min-h-0 flex items-center justify-center p-2 overflow-hidden">
+          <div className="flex-1 min-h-0 flex items-center justify-center p-2 overflow-hidden lobby-container">
 
             {uiState === 'DIED' ? (
               /* ── Tela de Morte ── */
@@ -879,7 +909,7 @@ export default function MultiplayerApp({ onBack }) {
               <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-12 w-full max-w-4xl">
 
                 {/* Branding — visível no desktop */}
-                <div className="hidden md:flex flex-col items-center text-center shrink-0" style={{maxWidth:'280px'}}>
+                <div className="hidden md:flex flex-col items-center text-center shrink-0 branding-section" style={{maxWidth:'280px'}}>
                   {/* Logo menor com glow */}
                   <div className="w-20 h-20 mb-3 relative">
                     <Logo className="w-full h-full drop-shadow-[0_0_25px_rgba(168,85,247,0.5)]" />
@@ -908,7 +938,7 @@ export default function MultiplayerApp({ onBack }) {
                 </div>
 
                 {/* Coluna de Controles — adaptável */}
-                <div className="flex flex-col items-center w-full max-w-xs" style={{gap:'clamp(0.4rem,1.5vh,1rem)'}}>
+                <div className="flex flex-col items-center w-full max-w-xs controls-section" style={{gap:'clamp(0.4rem,1.5vh,1rem)'}}>
                   {connectionError && (
                     <div className="bg-red-900/30 border border-red-500/40 px-3 py-1.5 rounded-xl text-red-400 text-xs text-center w-full">{connectionError}</div>
                   )}
@@ -917,7 +947,7 @@ export default function MultiplayerApp({ onBack }) {
                   <div className="w-full bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
                     {/* Preview */}
                     <div className="flex items-center justify-center px-4 relative" style={{paddingTop:'clamp(0.6rem,2vh,1.5rem)', paddingBottom:'clamp(0.6rem,2vh,1.5rem)', background:`radial-gradient(ellipse at center, ${SKINS[selectedSkinIdx].color}15 0%, transparent 70%)`}}>
-                      <div className="rounded-full flex items-center justify-center border-4 shadow-xl transition-all duration-300"
+                      <div className="rounded-full flex items-center justify-center border-4 shadow-xl transition-all duration-300 skin-preview-circle"
                         style={{
                           width:'clamp(3.5rem,12vw,6rem)', height:'clamp(3.5rem,12vw,6rem)',
                           background: SKINS[selectedSkinIdx].type.startsWith('dragon') ? 'radial-gradient(circle, #333 0%, #000 100%)' : (SKINS[selectedSkinIdx].type === 'chain' ? 'radial-gradient(circle, #4b5563 0%, #111827 100%)' : `radial-gradient(circle, ${SKINS[selectedSkinIdx].color} 0%, rgba(0,0,0,0.95) 100%)`),
@@ -938,7 +968,7 @@ export default function MultiplayerApp({ onBack }) {
                         className="w-8 h-8 rounded-full hover:bg-white/10 active:scale-90 transition-all flex items-center justify-center text-white text-xl font-bold border border-white/10" style={{background:'rgba(255,255,255,0.05)'}}>‹</button>
                       <div className="flex flex-col items-center gap-0.5">
                         <span className={`text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${RARITY_STYLE[SKINS[selectedSkinIdx].rarity]}`}>{SKINS[selectedSkinIdx].rarity}</span>
-                        <span className="font-black text-xs uppercase" style={{ color: SKINS[selectedSkinIdx].color }}>{SKINS[selectedSkinIdx].name}</span>
+                        <span className="font-black text-xs uppercase truncate max-w-[120px]" style={{ color: SKINS[selectedSkinIdx].color }}>{SKINS[selectedSkinIdx].name}</span>
                       </div>
                       <button onClick={() => setSelectedSkinIdx(i => (i === SKINS.length - 1 ? 0 : i + 1))}
                         className="w-8 h-8 rounded-full hover:bg-white/10 active:scale-90 transition-all flex items-center justify-center text-white text-xl font-bold border border-white/10" style={{background:'rgba(255,255,255,0.05)'}}>›</button>
@@ -948,12 +978,12 @@ export default function MultiplayerApp({ onBack }) {
                   {/* Nickname */}
                   <input type="text" maxLength={16} value={playerName} onChange={e => setPlayerName(e.target.value)}
                     placeholder="Seu Nickname" onKeyDown={e => e.key === 'Enter' && handleJoin()}
-                    className="bg-white/5 text-white placeholder-gray-600 px-4 rounded-xl text-sm w-full text-center border-2 border-white/10 focus:border-purple-500/50 outline-none transition-all"
+                    className="bg-white/5 text-white placeholder-gray-600 px-4 rounded-xl text-sm w-full text-center border-2 border-white/10 focus:border-purple-500/50 outline-none transition-all nickname-input"
                     style={{paddingTop:'clamp(0.5rem,1.5vh,0.75rem)', paddingBottom:'clamp(0.5rem,1.5vh,0.75rem)'}} />
 
                   {/* Botão Entrar */}
                   <button onClick={handleJoin} disabled={uiState === 'CONNECTING'}
-                    className="bg-[#4ade80] hover:bg-[#22c55e] disabled:bg-gray-600 text-black font-black rounded-full shadow-[0_4px_0_#166534] active:translate-y-0.5 active:shadow-none transition-all uppercase tracking-tighter disabled:opacity-50 w-full"
+                    className="bg-[#4ade80] hover:bg-[#22c55e] disabled:bg-gray-600 text-black font-black rounded-full shadow-[0_4px_0_#166534] active:translate-y-0.5 active:shadow-none transition-all uppercase tracking-tighter disabled:opacity-50 w-full join-button"
                     style={{padding:'clamp(0.6rem,1.8vh,0.9rem) 1.5rem', fontSize:'clamp(0.9rem,2.5vw,1.2rem)'}}>
                     {uiState === 'CONNECTING' ? 'Conectando...' : 'Entrar na Arena'}
                   </button>
@@ -989,6 +1019,16 @@ export default function MultiplayerApp({ onBack }) {
         .animate-shake { animation: shake 0.4s ease-in-out; }
         .animate-pulse-subtle { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        
+        /* Mobile Landscape Optimizations */
+        @media (max-height: 480px) {
+          .lobby-container { padding: 0.25rem !important; }
+          .skin-preview-circle { width: 3.5rem !important; height: 3.5rem !important; }
+          .branding-section { display: none !important; }
+          .controls-section { max-width: 320px !important; gap: 0.25rem !important; }
+          .nickname-input { padding-top: 0.4rem !important; padding-bottom: 0.4rem !important; font-size: 0.75rem !important; }
+          .join-button { padding: 0.5rem 1rem !important; font-size: 0.85rem !important; }
+        }
       `}} />
     </div>
   );
